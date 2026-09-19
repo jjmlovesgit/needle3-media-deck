@@ -4,6 +4,20 @@ This is an **unsigned Windows preview** for testing Media Deck on a second
 computer. It installs the local Media Deck companion and the public/no-Suno
 Chrome extension for the current Windows user.
 
+## Run this first
+
+Download `Test-MediaDeckPrerequisites.ps1` from **Assets**, open PowerShell,
+and run:
+
+```powershell
+cd $HOME\Downloads
+Unblock-File .\Test-MediaDeckPrerequisites.ps1
+Set-ExecutionPolicy -Scope Process Bypass
+.\Test-MediaDeckPrerequisites.ps1
+```
+
+Continue with the installer only when the final line says the PC is ready.
+
 The GitHub repository and release are private. Sign into GitHub with an account
 that has access to `jjmlovesgit/mediadeck` before downloading the assets.
 
@@ -18,15 +32,6 @@ From the release's **Assets** section, download:
 Keep the files together in the Windows Downloads folder.
 
 ## 1. Validate the laptop
-
-Open PowerShell and run:
-
-```powershell
-cd $HOME\Downloads
-Unblock-File .\Test-MediaDeckPrerequisites.ps1
-Set-ExecutionPolicy -Scope Process Bypass
-.\Test-MediaDeckPrerequisites.ps1
-```
 
 The validator checks:
 
