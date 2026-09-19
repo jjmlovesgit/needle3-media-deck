@@ -42,16 +42,17 @@ Install the following before running setup:
 Confirm the required commands in a new PowerShell window:
 
 ```powershell
-python --version
-node --version
-ffmpeg -version
-ffprobe -version
+Set-ExecutionPolicy -Scope Process Bypass
+.\Test-MediaDeckPrerequisites.ps1
 ```
 
-FFmpeg must include the `subtitles`/libass filter:
+The validator reports each resolved executable, its version, whether Python can
+create virtual environments, and whether FFmpeg includes the
+`subtitles`/libass filter. It exits with code 0 when the computer is ready and
+code 1 when a prerequisite needs attention. JSON output is also available:
 
 ```powershell
-ffmpeg -hide_banner -filters | Select-String subtitles
+.\Test-MediaDeckPrerequisites.ps1 -Json
 ```
 
 No NVIDIA driver, CUDA toolkit, or GPU-specific installation is required.

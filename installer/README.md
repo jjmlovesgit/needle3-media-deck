@@ -25,6 +25,13 @@ installed. It is not code-signed yet. A consumer release should bundle or
 bootstrap the prerequisites, use the final Chrome Web Store extension ID, use a
 sanitized public native-host payload, and be Authenticode signed.
 
+Run the standalone prerequisite validator before installation:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\Test-MediaDeckPrerequisites.ps1
+```
+
 Validate the embedded payload without installing:
 
 ```powershell

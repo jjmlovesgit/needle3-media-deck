@@ -50,6 +50,7 @@ $rootFiles = @(
     'requirements.txt',
     'run_host.bat',
     'setup.ps1',
+    'Test-MediaDeckPrerequisites.ps1',
     'README.md',
     'Notes.md',
     'LICENSE'
