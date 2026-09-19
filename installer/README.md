@@ -38,3 +38,7 @@ Validate the embedded payload without installing:
 & '.\installer\dist\MediaDeck-Setup-0.1.0.exe' /verify
 Get-Content (Join-Path $env:TEMP 'MediaDeckInstallerVerify.log')
 ```
+
+The complete second-computer test procedure and current preview limitations are
+documented in [PREVIEW-README.md](PREVIEW-README.md). The same file is used as
+the GitHub pre-release description and is attached as a downloadable asset.
