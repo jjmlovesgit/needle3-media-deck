@@ -256,6 +256,24 @@ downloader:
 & '.\.venv\Scripts\python.exe' -m pip install --upgrade 'yt-dlp[default]'
 ```
 
+## Build the Windows installer
+
+Build the signed-ready preview installer with:
+
+```powershell
+cd C:\Projects\karaoke_Agent
+.\installer\build-installer.ps1
+```
+
+The EXE and SHA-256 checksum are written to `installer\dist`. The installer
+embeds the generated public/no-Suno extension, installs the companion per-user
+under `%LOCALAPPDATA%\MediaDeck`, runs native-host setup, and registers an
+Apps & Features uninstall entry.
+
+The current preview installer requires Chrome, Python, Node.js, FFmpeg, and
+FFprobe to be installed already. See [installer/README.md](installer/README.md)
+for validation, signing, and release-hardening notes.
+
 ## Troubleshooting installation
 
 ### “Specified native messaging host not found”

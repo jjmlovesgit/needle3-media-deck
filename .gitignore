@@ -59,6 +59,7 @@ build/
 dist/
 publish/
 installer/dist/
+installer/.tmp/
 installer-gui/dist/
 installer-bootstrap/dist/
 .tmp/
