@@ -1,0 +1,97 @@
+# Python environments and caches
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Generated media, downloads, indexes, and runtime state
+output/
+cache/
+state/
+downloads/
+*.part
+*.ytdl
+
+# Generated smoke-test artifacts in the project root
+/count_in_smoke.*
+/layout_smoke.*
+/marker_smoke.*
+/modern_compact.*
+/modern_smoke.*
+
+# Machine-specific native-host output
+/KaraokeNativeHost.exe
+/host_manifest.json
+/extension_public_key.der
+
+# Private keys, certificates, credentials, and local environment files
+*.pem
+*.key
+*.pfx
+*.p12
+*.cer
+*.crt
+.env
+.env.*
+!.env.example
+
+# Compiled and packaged release artifacts
+*.exe
+*.dll
+*.pdb
+*.msi
+*.msix
+*.appx
+*.zip
+*.7z
+*.tar
+*.gz
+bin/
+obj/
+build/
+dist/
+publish/
+installer/dist/
+installer-gui/dist/
+installer-bootstrap/dist/
+.tmp/
+.dotnet/
+.dotnet-home/
+.nuget/
+.appdata/
+
+# JavaScript dependencies and tooling caches
+node_modules/
+.npm/
+.parcel-cache/
+
+# Model policy: keep the small licensed wake-word model, not downloaded weights
+models/*
+!models/hey_jarvis_v0.1.onnx
+!models/README.md
+
+# Logs, temporary files, and editor metadata
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+
+# Windows and macOS metadata
+Thumbs.db
+Desktop.ini
+.DS_Store
