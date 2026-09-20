@@ -1,5 +1,5 @@
 import { inferMetadata } from '../app/scripts/metadata.js';
-import { readdir, realpath, stat, open } from 'node:fs/promises';
+import { readdir, realpath, stat, open, readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { classifyMedia } from '../app/scripts/library.js';
@@ -16,6 +16,16 @@ export function byteRange(header, size) {
   let end = match[1] && match[2] ? Math.min(Number(match[2]), size - 1) : size - 1;
   if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || start > end || start >= size) return null;
   return { start, end, partial: true };
+}
+
+const manifestKey = value => String(value || '').replace(/\\/g, '/');
+async function readCatalogMetadata(root) {
+  try {
+    const catalog = JSON.parse(await readFile(path.join(root, 'catalog.json'), 'utf8'));
+    if (!Array.isArray(catalog.items)) return new Map();
+    return new Map(catalog.items.filter(item => item && typeof item.relativePath === 'string')
+      .map(item => [manifestKey(item.relativePath), item]));
+  } catch { return new Map(); }
 }
 
 /** Read-only development adapter. No filesystem paths are accepted from HTTP clients. */
@@ -35,6 +45,7 @@ export class MediaSource {
   }
   async #scan() {
     const root = await realpath(this.source.path);
+    const catalogMetadata = await readCatalogMetadata(root);
     const records = new Map();
     const identities = new Set();
     let skipped = 0;
@@ -58,7 +69,17 @@ export class MediaSource {
           identities.add(identity);
           const id = createHash('sha256').update(this.source.id + '\0' + canonical).digest('hex');
           const relativePath = path.relative(root, canonical);
-          const metadata = inferMetadata(relativePath);
+          const inferred = inferMetadata(relativePath), catalogItem = catalogMetadata.get(manifestKey(relativePath));
+          const metadata = catalogItem ? { ...inferred,
+            title: typeof catalogItem.title === 'string' && catalogItem.title.trim() ? catalogItem.title.trim() : inferred.title,
+            artist: typeof catalogItem.artist === 'string' ? catalogItem.artist.trim() : inferred.artist,
+            album: typeof catalogItem.album === 'string' ? catalogItem.album.trim() : inferred.album,
+            track: Number.isInteger(catalogItem.track) ? catalogItem.track : inferred.track,
+            year: Number.isInteger(catalogItem.year) ? catalogItem.year : null,
+            durationMs: Number.isFinite(catalogItem.durationMs) ? catalogItem.durationMs : null,
+            musicBrainzRecordingId: typeof catalogItem.musicBrainzRecordingId === 'string' ? catalogItem.musicBrainzRecordingId : null,
+            aliases: Array.isArray(catalogItem.aliases) ? catalogItem.aliases.filter(value => typeof value === 'string') : [],
+            metadataSource: 'Catalog' } : inferred;
           if (metadata.albumKey) metadata.albumKey = createHash('sha256').update(this.source.id + metadata.albumKey).digest('hex');
           const item = { id, ...metadata, modified: info.mtimeMs, ...classification,
             relativePath, url: '/media/' + id };

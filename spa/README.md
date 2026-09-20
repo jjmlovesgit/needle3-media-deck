@@ -28,7 +28,7 @@ The reference's Web Audio EQ and visualization code remains in `reference-consol
 
 ## Boundaries
 
-The Node development adapter reads `C:\Projects\karaoke_Agent\output` through `config/media-sources.json`. It uses recursive canonical indexing, stable IDs, byte-range streaming, and no writes to media. Picker files remain supported independently.
+The Node development adapter reads the generated demo library at `C:\Projects\needle3-media-deck-reference-clone\demo` through `config/media-sources.json`. It uses recursive canonical indexing, stable IDs, byte-range streaming, and no writes to media. Picker files remain supported independently.
 
 Typed JSDoc modules own player state, library records, matching, and browser media access. The reference renderer is an explicit compatibility module; its EQ DOM rendering is retained to preserve the UI and is not a model execution interface.
 

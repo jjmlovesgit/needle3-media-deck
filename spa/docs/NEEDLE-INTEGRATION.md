@@ -29,7 +29,7 @@ A single initialized worker serializes requests and resets per-command model sta
 
 Validation never changes the tool selected by Needle or repairs its free-text arguments. Incorrect or invented proposals are rejected and displayed. Confidence is displayed but is not treated as proof of correctness.
 
-Manual push-to-talk is the only microphone owner. Speech-pack readiness, microphone acquisition, and creation of a fresh recognition object happen sequentially for each hold. Release includes a 450 ms final-word tail. Recognition is forced to `processLocally`; no raw audio or transcript history is stored. The browser may install its local language pack on first use. No VAD, wake-word model, native executor, or background listener is added. Shared media remains read-only at `C:\Projects\karaoke_Agent\output`, served through the existing loopback adapter. Offline warm inference works after assets load; a fresh page still needs the local server. This is not a service-worker-cached installed app.
+Manual push-to-talk is the only microphone owner. Speech-pack readiness, microphone acquisition, and creation of a fresh recognition object happen sequentially for each hold. Release includes a 450 ms final-word tail. Recognition is forced to `processLocally`; no raw audio or transcript history is stored. The browser may install its local language pack on first use. No VAD, wake-word model, native executor, or background listener is added. Demo media remains read-only at `C:\Projects\needle3-media-deck-reference-clone\demo`, served through the existing loopback adapter. Offline warm inference works after assets load; a fresh page still needs the local server. This is not a service-worker-cached installed app.
 
 ## Validation and limits (2026-09-20)
 

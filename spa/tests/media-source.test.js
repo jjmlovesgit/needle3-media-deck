@@ -34,3 +34,22 @@ test('read-only source indexes recursively with stable IDs, canonical duplicates
     assert.equal((await source.scan(true)).items.length, 1);
   } finally { await rm(root, {recursive:true,force:true}); }
 });
+
+test('catalog metadata replaces staged filename inference without exposing source paths', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'media-source-catalog-'));
+  try {
+    await mkdir(path.join(root, 'Example Artist'));
+    const relativePath = path.join('Example Artist', 'Example Artist - Example Track [01234567].mp3');
+    await writeFile(path.join(root, relativePath), 'media');
+    await writeFile(path.join(root, 'catalog.json'), JSON.stringify({ items: [{ relativePath,
+      title: 'Example Track', artist: 'Example Artist', album: 'Example Album', track: 2, year: 2020,
+      durationMs: 123000, musicBrainzRecordingId: '00000000-0000-4000-8000-000000000001', aliases: ['Working Title'] }] }));
+    const result = await new MediaSource({ id: 'catalog-test', path: root, readOnly: true }).scan();
+    assert.equal(result.items.length, 1);
+    assert.deepEqual({ title: result.items[0].title, artist: result.items[0].artist, metadataSource: result.items[0].metadataSource,
+      durationMs: result.items[0].durationMs, musicBrainzRecordingId: result.items[0].musicBrainzRecordingId },
+      { title: 'Example Track', artist: 'Example Artist', metadataSource: 'Catalog', durationMs: 123000,
+        musicBrainzRecordingId: '00000000-0000-4000-8000-000000000001' });
+    assert(!JSON.stringify(result).includes(root));
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

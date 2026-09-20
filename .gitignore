@@ -13,6 +13,7 @@ htmlcov/
 
 # Generated media, downloads, indexes, and runtime state
 output/
+/demo/
 cache/
 state/
 downloads/

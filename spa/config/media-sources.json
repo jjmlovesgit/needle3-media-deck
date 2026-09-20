@@ -2,8 +2,8 @@
   "version": 1,
   "sources": [
     {
-      "id": "shared-media-output",
-      "path": "C:\\Projects\\karaoke_Agent\\output",
+      "id": "demo-media-library",
+      "path": "C:\\Projects\\needle3-media-deck-reference-clone\\demo",
       "readOnly": true
     }
   ]
