@@ -116,7 +116,9 @@ export function rankMusicBrainzCandidates(local, recordings = []) {
 export function decideCandidate(local, ranked) {
   const best = ranked[0];
   if (!best || best.apiScore < .7 || best.titleSimilarity < .65) return { status: 'unmatched', confidence: 0 };
-  const margin = best.evidenceScore - (ranked[1]?.evidenceScore || 0);
+  const identity = candidate => normalize(candidate.recording.title) + '\0' + normalize(candidate.artist);
+  const competingIdentity = ranked.find(candidate => identity(candidate) !== identity(best));
+  const margin = best.evidenceScore - (competingIdentity?.evidenceScore || 0);
   const accept = Boolean(local.artist) && best.apiScore >= .9 && best.titleSimilarity >= .85 && best.artistSimilarity >= .8 && margin >= .05;
   return { status: accept ? 'accepted' : 'review', confidence: Number(best.evidenceScore.toFixed(3)), best, margin };
 }
@@ -217,10 +219,11 @@ export class MusicBrainzClient {
   }
 }
 
-export async function matchCatalog(catalog, client, limit = Infinity) {
+export async function matchCatalog(catalog, client, limit = Infinity, { requireArtist = false } = {}) {
   const items = []; let queried = 0;
   for (const item of markEnrichmentEligibility(catalog.items)) {
     if (!item.eligibleForEnrichment) { items.push(item); continue; }
+    if (requireArtist && !prepareLookupMetadata(item).artist) { items.push({ ...item, status: 'skipped-no-artist' }); continue; }
     if (queried >= limit) { items.push(item); continue; }
     const data = await client.search(item); queried++;
     const lookup = prepareLookupMetadata(item);

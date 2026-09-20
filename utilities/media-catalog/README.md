@@ -25,6 +25,8 @@ The local `scan` command uses an existing `ffprobe` executable on `PATH` to read
 
 `match` performs recording search and writes `work/catalog.matches.json`. It retains and caches only the candidate recording ID, title, artist, and match score, discarding other fields returned by search. It does not change catalog metadata. `enrich` then performs an ID lookup only for records with `matched` status; `review`, `unmatched`, and `excluded-album` records never trigger metadata lookups. Both network commands require either `--allow-network` or `--offline`.
 
+Add `--require-artist` to `match` when only title-and-artist queries are authorized. Eligible title-only records receive `skipped-no-artist` and are never transmitted.
+
 The default enriched output is `work/catalog.enriched.json`. Search and metadata responses use separate caches in `.cache/musicbrainz`, and requests are spaced at least 1.1 seconds apart. The utility sends this contact URL in its User-Agent:
 
 `https://github.com/jjmlovesgit/needle3-media-deck`

@@ -7,7 +7,7 @@ import { enrichCatalog, markEnrichmentEligibility, matchCatalog, musicBrainzQuer
 const directory = path.dirname(fileURLToPath(import.meta.url)), values = process.argv.slice(2), command = values.shift();
 const option = (name, fallback) => { const index = values.indexOf('--' + name); return index >= 0 ? values[index + 1] : fallback; };
 const has = name => values.includes('--' + name);
-const usage = () => console.log('Usage:\n  node catalog.mjs scan --source <media-directory> [--output <catalog.json>]\n  node catalog.mjs plan [--catalog <catalog.json>] [--output <plan.json>]\n  node catalog.mjs match [--catalog <local.json>] [--output <matches.json>] [--limit <count>] (--allow-network | --offline)\n  node catalog.mjs enrich [--catalog <matches.json>] [--output <enriched.json>] [--limit <count>] (--allow-network | --offline)');
+const usage = () => console.log('Usage:\n  node catalog.mjs scan --source <media-directory> [--output <catalog.json>]\n  node catalog.mjs plan [--catalog <catalog.json>] [--output <plan.json>]\n  node catalog.mjs match [--catalog <local.json>] [--output <matches.json>] [--limit <count>] [--require-artist] (--allow-network | --offline)\n  node catalog.mjs enrich [--catalog <matches.json>] [--output <enriched.json>] [--limit <count>] (--allow-network | --offline)');
 const checkedLimit = () => {
   const raw = option('limit', 'Infinity'), limit = raw === 'Infinity' ? Infinity : Number(raw);
   if ((!Number.isInteger(limit) || limit < 1) && limit !== Infinity) throw new Error('--limit must be a positive integer.');
@@ -40,7 +40,7 @@ try {
     const output = path.resolve(option('output', path.join(directory, 'work', 'catalog.matches.json')));
     const contact = option('contact', 'https://github.com/jjmlovesgit/needle3-media-deck');
     checkedNetwork(); const catalog = JSON.parse(await readFile(input, 'utf8'));
-    const matched = await matchCatalog(catalog, client(contact), checkedLimit()); await writeJson(output, matched);
+    const matched = await matchCatalog(catalog, client(contact), checkedLimit(), { requireArtist: has('require-artist') }); await writeJson(output, matched);
     console.log(JSON.stringify({ output, files: matched.items.length, phase: matched.phase, counts: matched.counts }, null, 2));
   } else if (command === 'enrich') {
     const input = path.resolve(option('catalog', path.join(directory, 'work', 'catalog.matches.json')));

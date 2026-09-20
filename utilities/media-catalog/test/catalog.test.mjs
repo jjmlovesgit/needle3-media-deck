@@ -54,6 +54,8 @@ const local = { title: 'Example Track Alpha', artist: 'Example Artist', album: '
 const recordings = [
   { id: '00000000-0000-4000-8000-000000000001', title: 'Example Track Alpha', score: 100, length: 201000,
     'artist-credit': [{ name: 'Example Artist' }], releases: [{ title: 'Example Album', date: '2020-01-02' }] },
+  { id: '00000000-0000-4000-8000-000000000003', title: 'Example Track Alpha', score: 99, length: 202000,
+    'artist-credit': [{ name: 'Example Artist' }], releases: [{ title: 'Another Release', date: '2021' }] },
   { id: '00000000-0000-4000-8000-000000000002', title: 'Example Track Alpha Remix', score: 86,
     'artist-credit': [{ name: 'Different Artist' }], releases: [] }
 ];
@@ -70,11 +72,28 @@ test('matching stores only identity evidence before metadata lookup', () => {
   assert.equal(enriched.status, 'enriched'); assert.equal(enriched.album, 'Example Album'); assert.equal(enriched.year, 2020);
 });
 
+test('duplicate recording IDs for the same title and artist do not create false ambiguity', () => {
+  const ranked = rankMusicBrainzCandidates(local, recordings), decision = decideCandidate(local, ranked);
+  assert.equal(decision.status, 'accepted');
+  assert(decision.margin > .05);
+});
+
 test('title-only evidence stays reviewable and query escaping is bounded', () => {
   const titleOnly = { title: 'Example Track Alpha', artist: '' }, ranked = rankMusicBrainzCandidates(titleOnly, recordings);
   assert.equal(decideCandidate(titleOnly, ranked).status, 'review');
   assert.equal(musicBrainzQuery({ title: 'Example "Quoted" Track', artist: 'Example Artist' }),
     'recording:"Example \\"Quoted\\" Track" AND artist:"Example Artist"');
+});
+
+test('artist-required matching never sends title-only records', async () => {
+  let searches = 0;
+  const client = { search: async () => { searches++; return { recordings: [] }; } };
+  const result = await matchCatalog({ items: [
+    { id: 'artist', title: 'Example One', artist: 'Example Artist', album: '', relativePath: 'one.mp3', status: 'local', eligibleForEnrichment: true },
+    { id: 'title', title: 'Example Two', artist: '', album: '', relativePath: 'two.mp3', status: 'local', eligibleForEnrichment: true }
+  ] }, client, Infinity, { requireArtist: true });
+  assert.equal(searches, 1);
+  assert.equal(result.items.find(item => item.id === 'title').status, 'skipped-no-artist');
 });
 
 test('lookup preparation removes generic promotional suffixes and derives collection artist', () => {
