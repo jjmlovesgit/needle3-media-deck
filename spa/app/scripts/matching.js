@@ -1,5 +1,5 @@
 import { normalizeMediaText as normalize } from './metadata.js';
-/** @typedef {{title:string,artist?:string,album?:string,format?:'any'|import('./types.js').MediaKind}} MediaRequest */
+/** @typedef {{title:string,artist?:string,album?:string,format?:'any'|'mp4'|import('./types.js').MediaKind}} MediaRequest */
 function structuredArtistTitle(value) {
   const match = /^\s*(.+?)\s+[-–—]\s+(.+?)\s*$/.exec(value);
   return match ? { artist: normalize(match[1]), title: normalize(match[2]) } : null;
@@ -11,13 +11,13 @@ export function matchMedia(items, request) {
   if (!request || typeof request.title !== 'string' || !normalize(request.title) ||
       Object.keys(request).some(key => !['title','artist','album','format'].includes(key)) ||
       ['artist','album'].some(key => request[key] !== undefined && typeof request[key] !== 'string') ||
-      !['any','mp3','original_mp4','karaoke_mp4'].includes(request.format || 'any')) {
+      !['any','mp3','mp4','original_mp4','karaoke_mp4'].includes(request.format || 'any')) {
     return { status: 'invalid', candidates: [], message: 'Enter a title and valid optional artist, album, and format.' };
   }
   const title = normalize(request.title);
   const structured = structuredArtistTitle(request.title);
   if (structured) {
-    const structuredExact = items.filter(item => (!request.format || request.format === 'any' || item.kind === request.format)
+    const structuredExact = items.filter(item => (!request.format || request.format === 'any' || item.kind === request.format || request.format === 'mp4' && item.kind.endsWith('_mp4'))
       && (!request.album || normalize(item.album || '') === normalize(request.album))
       && normalize(item.artist || '') === structured.artist && normalize(item.title) === structured.title
       && (!request.artist || normalize(request.artist) === structured.artist || normalize(request.artist) === structured.title));
@@ -26,7 +26,7 @@ export function matchMedia(items, request) {
     if (structuredExact.length > 1) return { status: 'ambiguous', candidates: structuredExact,
       message: 'Several matching versions. Choose a file or specify album or format.' };
   }
-  const candidates = items.filter(item => (!request.format || request.format === 'any' || item.kind === request.format)
+  const candidates = items.filter(item => (!request.format || request.format === 'any' || item.kind === request.format || request.format === 'mp4' && item.kind.endsWith('_mp4'))
     && (!request.artist || normalize(item.artist || '') === normalize(request.artist))
     && (!request.album || normalize(item.album || '') === normalize(request.album)));
   const exact = candidates.filter(item => normalize(item.title) === title);

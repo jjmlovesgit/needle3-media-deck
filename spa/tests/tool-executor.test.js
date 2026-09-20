@@ -16,7 +16,7 @@ test('rejects unknown tools, extra arguments, empty settings, invalid types and 
  [[call('set_volume',{volume:'35'})],'volume 35'],
  [[call('set_volume',{volume:101})],'volume 101'],
  [[call('set_volume',{volume:50})],'volume 35'],
- [[call('play_media',{title:'Invented'})],'play Example Track Alpha'],
+ [[call('play_media',{title:'Invented',media_type:'any'})],'play Example Track Alpha'],
  [[call('show_all_media_files',{})],'delete all files'],
  [[call('skip_forward_10_seconds',{})],'skip forward 30 seconds'],
  [[call('set_volume',[])],'volume 35']
@@ -32,30 +32,39 @@ test('validates Needle-selected seek, filter, search, and panel tools without re
  assert.throws(()=>validateCalls([call('search_library',{query:'karaoke videos'})],'delete karaoke videos'));
 });
 test('named and current-track playback cannot execute together',()=>{
- assert.throws(()=>validateCalls([call('control_playback',{action:'play'}),call('play_media',{title:'Example Track Alpha'})],'Play Example Track Alpha'));
+ assert.throws(()=>validateCalls([call('control_playback',{action:'play'}),call('play_media',{title:'Example Track Alpha',media_type:'any'})],'Play Example Track Alpha'));
 });
 test('preserves the beginning of an explicitly requested title',()=>{
  const transcript="Play Azure Horizon Example Artist's version";
  const title='Azure Horizon',artist='Example Artist';
- assert.deepEqual(validateCalls([call('play_media',{title,artist})],transcript),[call('play_media',{title,artist})]);
- assert.throws(()=>validateCalls([call('play_media',{title:"Horizon Example Artist's version"})],transcript),/omitted the beginning/);
+ assert.deepEqual(validateCalls([call('play_media',{title,artist,media_type:'any'})],transcript),[call('play_media',{title,artist,media_type:'any'})]);
+ assert.throws(()=>validateCalls([call('play_media',{title:"Horizon Example Artist's version",media_type:'any'})],transcript),/omitted the beginning/);
 });
-test('requires Needle to preserve an explicitly requested playback format',()=>{
+test('requires Needle to preserve an explicitly requested MP3 or MP4 format',()=>{
  const title='Example Artist Example Track';
- assert.deepEqual(validateCalls([call('play_media',{title,format:'original_mp4'})],'Play Example Artist Example Track original video'),
-  [call('play_media',{title,format:'original_mp4'})]);
- assert.throws(()=>validateCalls([call('play_media',{title})],'Play Example Artist Example Track original video'),/requested media format/);
- assert.throws(()=>validateCalls([call('play_media',{title,format:'original_mp4'})],'Play Example Artist Example Track karaoke video'),/requested media format/);
- assert.throws(()=>validateCalls([call('play_media',{title,format:'any'})],'Play Example Artist Example Track MP3'),/requested media format/);
+ assert.deepEqual(validateCalls([call('play_media',{title,media_type:'mp4'})],'Play Example Artist Example Track MP4'),
+  [call('play_media',{title,media_type:'mp4'})]);
+ assert.throws(()=>validateCalls([call('play_media',{title,media_type:'any'})],'Play Example Artist Example Track MP4'),/requested media format/);
+ assert.throws(()=>validateCalls([call('play_media',{title,media_type:'mp3'})],'Play Example Artist Example Track video'),/requested media format/);
+ assert.throws(()=>validateCalls([call('play_media',{title,media_type:'any'})],'Play Example Artist Example Track MP3'),/requested media format/);
+});
+test('required media type preserves explicit formats through validation and execution',async()=>{
+ const cases=[['MP3','mp3','mp3'],['MP4','mp4','mp4']];
+ for(const [spoken,media_type,format] of cases){
+  const title='Example Artist Example Track',duplicated=title+' '+spoken,calls=validateCalls([call('play_media',{title:duplicated,artist:duplicated,album:duplicated,media_type})],`Play ${title} ${spoken}`);let request;
+  await executeCalls(calls,{matchMedia:value=>(request=value,{status:'match',candidates:[{id:'one',title:'Example Track'}]}),playMedia:()=>{},showCandidates:()=>{}});
+  assert.deepEqual(request,{title,format});
+ }
+ assert.throws(()=>validateCalls([call('play_media',{title:'Example Track',media_type:'mp3'})],'Play Example Track'),/not requested/);
 });
 test('accepts an exact title-only playback request but rejects an invented title',()=>{
  const title='Example Ensemble Anthology';
- assert.deepEqual(validateCalls([call('play_media',{title})],title),[call('play_media',{title})]);
- assert.throws(()=>validateCalls([call('play_media',{title:'Ensemble Anthology'})],title));
+ assert.deepEqual(validateCalls([call('play_media',{title,media_type:'any'})],title),[call('play_media',{title,media_type:'any'})]);
+ assert.throws(()=>validateCalls([call('play_media',{title:'Ensemble Anthology',media_type:'any'})],title));
 });
 test('ambiguous selection is presented and never played',async()=>{
  let played=false,shown=false;
- const result=await executeCalls([call('play_media',{title:'Example Track Alpha'})],{
+ const result=await executeCalls([call('play_media',{title:'Example Track Alpha',media_type:'any'})],{
   matchMedia:()=>({status:'ambiguous',candidates:[{id:'one'},{id:'two'}],message:'Choose a version'}),
   playMedia:()=>{played=true},showCandidates:()=>{shown=true}
  });
@@ -63,7 +72,7 @@ test('ambiguous selection is presented and never played',async()=>{
 });
 test('an approved automatic command selects the first deterministic ambiguous candidate',async()=>{
  let played='',shown=false;
- const result=await executeCalls([call('play_media',{title:'Example Track Alpha'})],{
+ const result=await executeCalls([call('play_media',{title:'Example Track Alpha',media_type:'any'})],{
   matchMedia:()=>({status:'ambiguous',candidates:[{id:'one',title:'Example Track Alpha'},{id:'two',title:'Example Track Alpha Karaoke'}],message:'Choose a version'}),
   playMedia:id=>{played=id},showCandidates:()=>{shown=true}
  },{allowAmbiguousMedia:true});

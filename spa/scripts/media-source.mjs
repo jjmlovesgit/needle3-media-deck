@@ -79,9 +79,11 @@ export class MediaSource {
             durationMs: Number.isFinite(catalogItem.durationMs) ? catalogItem.durationMs : null,
             musicBrainzRecordingId: typeof catalogItem.musicBrainzRecordingId === 'string' ? catalogItem.musicBrainzRecordingId : null,
             aliases: Array.isArray(catalogItem.aliases) ? catalogItem.aliases.filter(value => typeof value === 'string') : [],
+            kind: ['mp3','original_mp4','karaoke_mp4'].includes(catalogItem.kind) ? catalogItem.kind : classification.kind,
+            reason: ['mp3','original_mp4','karaoke_mp4'].includes(catalogItem.kind) ? 'Catalog media kind' : classification.reason,
             metadataSource: 'Catalog' } : inferred;
           if (metadata.albumKey) metadata.albumKey = createHash('sha256').update(this.source.id + metadata.albumKey).digest('hex');
-          const item = { id, ...metadata, modified: info.mtimeMs, ...classification,
+          const item = { id, ...classification, ...metadata, modified: info.mtimeMs,
             relativePath, url: '/media/' + id };
           records.set(id, { filename: canonical, root, item });
         } catch { skipped++; }

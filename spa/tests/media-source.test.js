@@ -43,12 +43,12 @@ test('catalog metadata replaces staged filename inference without exposing sourc
     await writeFile(path.join(root, relativePath), 'media');
     await writeFile(path.join(root, 'catalog.json'), JSON.stringify({ items: [{ relativePath,
       title: 'Example Track', artist: 'Example Artist', album: 'Example Album', track: 2, year: 2020,
-      durationMs: 123000, musicBrainzRecordingId: '00000000-0000-4000-8000-000000000001', aliases: ['Working Title'] }] }));
+      durationMs: 123000, kind: 'karaoke_mp4', musicBrainzRecordingId: '00000000-0000-4000-8000-000000000001', aliases: ['Working Title'] }] }));
     const result = await new MediaSource({ id: 'catalog-test', path: root, readOnly: true }).scan();
     assert.equal(result.items.length, 1);
-    assert.deepEqual({ title: result.items[0].title, artist: result.items[0].artist, metadataSource: result.items[0].metadataSource,
+    assert.deepEqual({ title: result.items[0].title, artist: result.items[0].artist, kind: result.items[0].kind, metadataSource: result.items[0].metadataSource,
       durationMs: result.items[0].durationMs, musicBrainzRecordingId: result.items[0].musicBrainzRecordingId },
-      { title: 'Example Track', artist: 'Example Artist', metadataSource: 'Catalog', durationMs: 123000,
+      { title: 'Example Track', artist: 'Example Artist', kind: 'karaoke_mp4', metadataSource: 'Catalog', durationMs: 123000,
         musicBrainzRecordingId: '00000000-0000-4000-8000-000000000001' });
     assert(!JSON.stringify(result).includes(root));
   } finally { await rm(root, { recursive: true, force: true }); }

@@ -2,10 +2,10 @@ import {normalizeMediaText as normalize} from './metadata.js';
 const enums={
  control_playback:{action:['play','pause','stop','previous','next']},
  set_panel:{section:['voice','sidebar'],action:['open','close','show','hide','toggle']},
- play_media:{format:['any','mp3','original_mp4','karaoke_mp4']}
+ play_media:{media_type:['any','mp3','mp4']}
 };
-const keys={play_media:['title','artist','album','format'],control_playback:['action'],rewind_10_seconds:[],skip_forward_10_seconds:[],show_mp3_files:[],show_original_videos:[],show_karaoke_files_or_videos:[],show_all_media_files:[],show_graphic_equalizer_panel:[],close_graphic_equalizer_panel:[],show_library_panel:[],hide_media_library_panel:[],close_performance_monitor_panel:[],search_library:['query'],refresh_library:[],set_volume:['volume'],load_eq_preset:['preset'],set_panel:['section','action']};
-const required={play_media:['title'],control_playback:['action'],rewind_10_seconds:[],skip_forward_10_seconds:[],show_mp3_files:[],show_original_videos:[],show_karaoke_files_or_videos:[],show_all_media_files:[],show_graphic_equalizer_panel:[],close_graphic_equalizer_panel:[],show_library_panel:[],hide_media_library_panel:[],close_performance_monitor_panel:[],search_library:['query'],refresh_library:[],set_volume:['volume'],load_eq_preset:['preset'],set_panel:['section','action']};
+const keys={play_media:['title','artist','album','media_type'],control_playback:['action'],rewind_10_seconds:[],skip_forward_10_seconds:[],show_mp3_files:[],show_original_videos:[],show_karaoke_files_or_videos:[],show_all_media_files:[],show_graphic_equalizer_panel:[],close_graphic_equalizer_panel:[],show_library_panel:[],hide_media_library_panel:[],close_performance_monitor_panel:[],search_library:['query'],refresh_library:[],set_volume:['volume'],load_eq_preset:['preset'],set_panel:['section','action']};
+const required={play_media:['title','media_type'],control_playback:['action'],rewind_10_seconds:[],skip_forward_10_seconds:[],show_mp3_files:[],show_original_videos:[],show_karaoke_files_or_videos:[],show_all_media_files:[],show_graphic_equalizer_panel:[],close_graphic_equalizer_panel:[],show_library_panel:[],hide_media_library_panel:[],close_performance_monitor_panel:[],search_library:['query'],refresh_library:[],set_volume:['volume'],load_eq_preset:['preset'],set_panel:['section','action']};
 const presets=['Flat','Rock','Pop','Jazz','Classical','Vocal','Bass Boost','Dance','Acoustic'];
 const phrases={
  play:['play','resume','continue'],pause:['pause'],stop:['stop'],previous:['previous','back track'],next:['next'],
@@ -19,7 +19,8 @@ const mentions=(text,values)=>values.some(value=>(' '+text+' ').includes(' '+val
  */
 export function validateCalls(calls,transcript){
  if(!Array.isArray(calls)||calls.length>8)throw new Error('Invalid tool-call list.');
- if(calls.some(call=>call?.name==='play_media')&&calls.some(call=>call?.name==='control_playback'&&call.arguments?.action==='play'))throw new Error('Conflicting named and current-track playback requests. Please name only the desired track.');
+ const namedPlayback=new Set(['play_media']);
+ if(calls.some(call=>namedPlayback.has(call?.name))&&calls.some(call=>call?.name==='control_playback'&&call.arguments?.action==='play'))throw new Error('Conflicting named and current-track playback requests. Please name only the desired track.');
  const text=normalize(transcript);
  return calls.map(call=>{
   if(!call||typeof call!=='object'||Object.keys(call).some(key=>!['name','arguments'].includes(key))||!Object.hasOwn(keys,call.name))throw new Error('Unsupported tool call.');
@@ -37,13 +38,14 @@ export function validateCalls(calls,transcript){
      if(!grounded)throw new Error(key+' was not present in the typed command.');
     }
     if(key==='preset'&&!presets.includes(value))throw new Error('Unknown EQ preset.');
-    if(key==='format'&&value!=='any'&&!mentions(text,phrases[value]||[]))throw new Error('Media format was not requested.');
    }
   }
-  if(call.name==='play_media'&&!mentions(text,phrases.play)&&normalize(args.title)!==text)throw new Error('Playback was not requested.');
-  if(call.name==='play_media'){
-   const requestedFormat=mentions(text,['karaoke'])?'karaoke_mp4':mentions(text,['mp3'])?'mp3':mentions(text,['original video','original videos'])?'original_mp4':null;
-   if(requestedFormat&&args.format!==requestedFormat)throw new Error('Needle omitted or changed the explicitly requested media format. Nothing was played.');
+  if(namedPlayback.has(call.name)&&!mentions(text,phrases.play)&&normalize(args.title)!==text)throw new Error('Playback was not requested.');
+  if(namedPlayback.has(call.name)){
+   const requestedFormat=mentions(text,['mp3','audio'])?'mp3':mentions(text,['mp4','video','videos','original video','original videos','karaoke'])?'mp4':null;
+   const toolFormat=args.media_type;
+   if(requestedFormat&&toolFormat!==requestedFormat)throw new Error('Needle omitted or changed the explicitly requested media format. Nothing was played.');
+   if(!requestedFormat&&toolFormat!=='any')throw new Error('Needle added a media format that was not requested. Nothing was played.');
    const explicit=/^(?:please\s+)?(?:play|resume|continue)\s+(.+)$/i.exec(transcript.trim());
    if(explicit&&normalize(explicit[1]).split(' ')[0]!==normalize(args.title).split(' ')[0])throw new Error('Needle omitted the beginning of the requested title. Nothing was played.');
   }
@@ -72,7 +74,13 @@ export async function executeCalls(calls,api,{allowAmbiguousMedia=false}={}){
  const results=[];
  try { for(const {name,arguments:args} of calls){
   if(name==='play_media'){
-   const match=api.matchMedia(args);
+   const {media_type,...mediaRequest}=args,format=media_type==='any'?null:media_type;
+   const suffix={mp3:/\s+(?:mp3|audio)\s*$/i,mp4:/\s+(?:mp4|original\s+videos?|karaoke(?:\s+videos?)?|videos?)\s*$/i}[media_type];
+   if(suffix)for(const key of ['title','artist','album'])if(mediaRequest[key]){
+    const value=mediaRequest[key].replace(suffix,'').trim();if(value)mediaRequest[key]=value;
+   }
+   for(const key of ['artist','album'])if(normalize(mediaRequest[key]||'')===normalize(mediaRequest.title))delete mediaRequest[key];
+   const match=api.matchMedia(format?{...mediaRequest,format}:mediaRequest);
    if(match.status==='ambiguous'&&allowAmbiguousMedia&&match.candidates.length){
     await api.playMedia(match.candidates[0].id);results.push('Playback requested: '+match.candidates[0].title);continue;
    }

@@ -16,6 +16,13 @@ export function normalize(value = '') {
 
 const clean = value => value.replace(/_\d{8}_\d{6}_.+$/, '').replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
 
+export function classifyCatalogMedia(relativePath, extension = path.extname(relativePath).slice(1)) {
+  if (String(extension).toLowerCase() === 'mp3') return 'mp3';
+  if (String(extension).toLowerCase() !== 'mp4') return null;
+  return /(?:^|[\s_.(\[\-])karaoke(?:$|[\s_.)\]\-])/i.test(path.basename(relativePath, path.extname(relativePath)))
+    ? 'karaoke_mp4' : 'original_mp4';
+}
+
 export function inferLocalMetadata(relativePath) {
   const parts = relativePath.split(/[\\/]/), filename = parts.pop() || '', folder = parts.at(-1) || '';
   let title = clean(folder && /^(source|video|audio|karaoke)\.(mp3|mp4)$/i.test(filename) ? folder : filename.replace(/\.(mp3|mp4)$/i, ''));
@@ -46,7 +53,8 @@ export async function scanLibrary(source) {
     const info = await stat(absolute), relativePath = path.relative(root, absolute), local = inferLocalMetadata(relativePath);
     const durationMs = await probeDurationMs(absolute);
     const id = createHash('sha256').update(relativePath.toLowerCase() + '\0' + info.size).digest('hex');
-    items.push({ id, relativePath, extension: path.extname(absolute).slice(1).toLowerCase(), size: info.size,
+    const extension = path.extname(absolute).slice(1).toLowerCase();
+    items.push({ id, relativePath, extension, kind: classifyCatalogMedia(relativePath, extension), size: info.size,
       modifiedMs: info.mtimeMs, title: local.title, artist: local.artist, album: local.album, track: local.track,
       year: null, durationMs, musicBrainzRecordingId: null, aliases: [], status: 'local',
       confidence: local.artist ? 0.65 : 0.45, provenance: { title: 'filename-or-folder',
@@ -296,6 +304,7 @@ export async function stageCatalog(catalog, destination) {
   }
   const manifest = { schemaVersion: 1, generatedAt: new Date().toISOString(), files: planned.length,
     items: planned.map(({ item, relativePath }) => ({ id: item.id, relativePath, extension: item.extension,
+      kind: item.kind || classifyCatalogMedia(item.relativePath, item.extension),
       title: item.title, artist: item.artist, album: item.album || '', track: item.track ?? null,
       year: item.year ?? null, durationMs: item.durationMs ?? null,
       musicBrainzRecordingId: item.musicBrainzRecordingId, aliases: item.aliases || [] })) };

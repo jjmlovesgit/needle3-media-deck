@@ -3,13 +3,19 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { applyMatchDecision, applyRecordingMetadata, decideCandidate, enrichCatalog, inferLocalMetadata, markEnrichmentEligibility, matchCatalog, musicBrainzQuery, MusicBrainzClient, prepareLookupMetadata, probeDurationMs, rankMusicBrainzCandidates, safePathSegment, scanLibrary, stageCatalog, stagedRelativePath } from '../lib.mjs';
+import { applyMatchDecision, applyRecordingMetadata, classifyCatalogMedia, decideCandidate, enrichCatalog, inferLocalMetadata, markEnrichmentEligibility, matchCatalog, musicBrainzQuery, MusicBrainzClient, prepareLookupMetadata, probeDurationMs, rankMusicBrainzCandidates, safePathSegment, scanLibrary, stageCatalog, stagedRelativePath } from '../lib.mjs';
 
 test('local inference produces uniform metadata without media-specific rules', () => {
   assert.deepEqual(inferLocalMetadata('Example Artist - Example Track Alpha_20260917_114941_token/source.mp4'),
     { title: 'Example Track Alpha', artist: 'Example Artist', album: '', track: null });
   assert.deepEqual(inferLocalMetadata('Example Album - Tracks/02 - Example Track Beta.mp3'),
     { title: 'Example Track Beta', artist: '', album: 'Example Album', track: 2 });
+});
+
+test('catalog media classification preserves MP3, original MP4, and karaoke MP4 kinds', () => {
+  assert.equal(classifyCatalogMedia('Example Artist/Example Track.mp3'), 'mp3');
+  assert.equal(classifyCatalogMedia('Example Artist/source.mp4'), 'original_mp4');
+  assert.equal(classifyCatalogMedia('Example Artist/karaoke.mp4'), 'karaoke_mp4');
 });
 
 test('scanner reads supported files and never alters them', async () => {
@@ -146,6 +152,7 @@ test('staging copies only enriched songs with portable uniform names and a manif
   const manifest = await stageCatalog({ source: root, items: [enriched,
     { ...enriched, id: 'fedcba9876543210'.repeat(4), relativePath: 'second.mp4', extension: 'mp4', status: 'review' }] }, destination);
   assert.equal(manifest.files, 1); assert.equal(manifest.items.length, 1);
+  assert.equal(manifest.items[0].kind, 'mp3');
   assert.equal(manifest.items[0].relativePath, path.join('Example Artist', 'Example Artist - Example Track [01234567].mp3'));
   assert.equal(await readFile(path.join(destination, manifest.items[0].relativePath), 'utf8'), 'first-source');
   assert.equal(await readFile(path.join(root, 'first.mp3'), 'utf8'), 'first-source');

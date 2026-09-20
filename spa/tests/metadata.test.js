@@ -33,6 +33,15 @@ test('matching normalizes punctuation but preserves ambiguity and optional const
   assert.equal(matchMedia(items,{title:'unknown'}).status,'none');
   assert.equal(matchMedia(items,{title:'Ab Signal',artist:'unknown'}).status,'none');
 });
+test('MP4 matching includes both original and karaoke video kinds', () => {
+  const videoItems=[
+    {id:'original',title:'Example Video',artist:'Example Artist',album:'',kind:'original_mp4'},
+    {id:'karaoke',title:'Example Video',artist:'Example Artist',album:'',kind:'karaoke_mp4'},
+    {id:'audio',title:'Example Video',artist:'Example Artist',album:'',kind:'mp3'}
+  ];
+  const result=matchMedia(videoItems,{title:'Example Video',format:'mp4'});
+  assert.deepEqual(result.candidates.map(item=>item.id),['original','karaoke']);
+});
 test('structured artist-title input resolves a redundant title-as-artist argument generically', () => {
   const media=[{id:'structured',title:'Twilight Beacon',artist:'Night Ensemble',album:'Example Album',kind:'mp3'}];
   assert.equal(matchMedia(media,{title:'Night Ensemble - Twilight Beacon',artist:'Twilight Beacon'}).candidates[0].id,'structured');

@@ -30,6 +30,8 @@ The reference's Web Audio EQ and visualization code remains in `reference-consol
 
 The Node development adapter reads the generated demo library at `C:\Projects\needle3-media-deck-reference-clone\demo` through `config/media-sources.json`. It uses recursive canonical indexing, stable IDs, byte-range streaming, and no writes to media. Picker files remain supported independently.
 
+With the local server running, `npm run test:catalog` drives every configured catalog item through deterministic metadata matching and real playback in an installed Chromium browser. It reports MP3, original MP4, and karaoke MP4 results separately and writes the generated report to `demo/catalog-regression.json`. The script reads the catalog dynamically and contains no media titles.
+
 Typed JSDoc modules own player state, library records, matching, and browser media access. The reference renderer is an explicit compatibility module; its EQ DOM rendering is retained to preserve the UI and is not a model execution interface.
 
 `needle-client.js` creates one persistent module worker running the real Needle 3 WASM engine and full 20-layer model. Typed and manually spoken commands use the tool schema, strict argument/request validation, and application APIs. Manual speech uses Chrome/Edge on-device recognition while the microphone button or Ctrl+Space is held. The UI shows measured routing metrics and validated calls. See [Needle integration](docs/NEEDLE-INTEGRATION.md) for provenance, tests, and current accuracy limits. VAD and wake-word integration remain disabled.

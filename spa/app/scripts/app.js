@@ -206,6 +206,9 @@ const commandAPI={
   refreshMonitor();
  }
 };
+if(new URLSearchParams(location.search).has('catalog-regression'))Object.defineProperty(globalThis,'__mediaDeckCatalogRegression',{
+ value:{matchMedia:request=>app.matchMedia(request),librarySize:()=>app.library.list().length},configurable:true
+});
 function displayMetrics(metrics,result={}){
  const confidence=typeof result.confidence==='number'?Math.round(result.confidence*100)+'%':'—';
  const tps=value=>Number.isFinite(value)&&value>=0?value.toFixed(1):'—';

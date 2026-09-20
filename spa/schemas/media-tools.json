@@ -1,37 +1,37 @@
 [
   {
     "name": "play_media",
-    "description": "Play a named song or video from the local library. Copy the complete title span exactly as the user supplied it. Use this alone for named playback. Include optional artist, album, or format only when explicitly stated.",
+    "description": "Play named local media. The required media_type must be mp3 for MP3 or audio, mp4 for MP4 or video, or any when the user states no format. Put only the requested media name in title; exclude command and format words.",
     "parameters": {
       "type": "object",
       "properties": {
         "title": {
           "type": "string",
-          "description": "The complete requested media title copied without dropping, adding, or rewriting words.",
+          "description": "The complete requested media name without command or format words.",
           "minLength": 1
         },
         "artist": {
           "type": "string",
-          "description": "An artist explicitly named by the user. In an Artist - Title span, this is the text before the separator, never the title after it. Omit this field when the artist role is uncertain.",
+          "description": "An artist explicitly identified by the user. Omit when uncertain.",
           "minLength": 1
         },
         "album": {
           "type": "string",
           "minLength": 1
         },
-        "format": {
+        "media_type": {
           "type": "string",
-          "description": "Required when the user explicitly requests a format. Map MP3 or audio to mp3, original video to original_mp4, and karaoke to karaoke_mp4. Use any only when the user explicitly says any format.",
+          "description": "Required MP3 versus MP4 decision grounded in the user command.",
           "enum": [
             "any",
             "mp3",
-            "original_mp4",
-            "karaoke_mp4"
+            "mp4"
           ]
         }
       },
       "required": [
-        "title"
+        "title",
+        "media_type"
       ],
       "additionalProperties": false
     }
@@ -62,47 +62,81 @@
   {
     "name": "show_mp3_files",
     "description": "Filter the media list to MP3 audio files without changing panel visibility. Command example: Show MP3 files.",
-    "parameters": {"type": "object", "properties": {}, "additionalProperties": false}
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
   },
   {
     "name": "rewind_10_seconds",
     "description": "Move playback backward by exactly 10 seconds. Command example: Rewind 10 seconds.",
-    "parameters": {"type": "object", "properties": {}, "additionalProperties": false}
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
   },
   {
     "name": "skip_forward_10_seconds",
     "description": "Move playback forward by exactly 10 seconds. Command example: Skip forward 10 seconds.",
-    "parameters": {"type": "object", "properties": {}, "additionalProperties": false}
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
   },
   {
     "name": "show_original_videos",
     "description": "Filter the media list to original MP4 videos without changing panel visibility. Command example: Show original videos.",
-    "parameters": {"type": "object", "properties": {}, "additionalProperties": false}
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
   },
   {
     "name": "show_karaoke_files_or_videos",
     "description": "Filter the media list to karaoke files or videos without changing panel visibility. Command example: Show karaoke files.",
-    "parameters": {"type": "object", "properties": {}, "additionalProperties": false}
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
   },
   {
     "name": "show_all_media_files",
     "description": "Clear the media category filter without changing panel visibility. Command example: Show all media. This is a filter action, not a panel action.",
-    "parameters": {"type": "object", "properties": {}, "additionalProperties": false}
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
   },
   {
     "name": "search_library",
     "description": "Search the media library for a user-provided title or artist query. Command example with a fictional query: Find Example Track Alpha.",
     "parameters": {
       "type": "object",
-      "properties": {"query": {"type": "string"}},
-      "required": ["query"],
+      "properties": {
+        "query": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "query"
+      ],
       "additionalProperties": false
     }
   },
   {
     "name": "refresh_library",
     "description": "Refresh or rescan the local media library.",
-    "parameters": {"type": "object", "properties": {}, "additionalProperties": false}
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
   },
   {
     "name": "set_volume",
@@ -116,7 +150,9 @@
           "maximum": 100
         }
       },
-      "required": ["volume"],
+      "required": [
+        "volume"
+      ],
       "additionalProperties": false
     }
   },
@@ -142,34 +178,56 @@
           ]
         }
       },
-      "required": ["preset"],
+      "required": [
+        "preset"
+      ],
       "additionalProperties": false
     }
   },
   {
     "name": "show_graphic_equalizer_panel",
     "description": "Show, open, or display the Graphic Equalizer panel. Use only when the user names the equalizer.",
-    "parameters": {"type": "object", "properties": {}, "additionalProperties": false}
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
   },
   {
     "name": "close_graphic_equalizer_panel",
     "description": "Close or hide the Graphic Equalizer panel.",
-    "parameters": {"type": "object", "properties": {}, "additionalProperties": false}
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
   },
   {
     "name": "show_library_panel",
     "description": "Open or show the Media Library panel without changing its category filter. Command example: Show the library. This is a panel action, not a filter action.",
-    "parameters": {"type": "object", "properties": {}, "additionalProperties": false}
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
   },
   {
     "name": "hide_media_library_panel",
     "description": "Hide or close the Media Library panel when the user explicitly names the library.",
-    "parameters": {"type": "object", "properties": {}, "additionalProperties": false}
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
   },
   {
     "name": "close_performance_monitor_panel",
     "description": "Close or hide the Performance Monitor panel.",
-    "parameters": {"type": "object", "properties": {}, "additionalProperties": false}
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
   },
   {
     "name": "set_panel",
