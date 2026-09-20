@@ -30,8 +30,10 @@ export function matchMedia(items, request) {
     const available=normalize(value).split(' ').filter(Boolean);
     return requested.filter(token=>available.some(word=>word===token||(token.length>=5&&word.length>=5&&Math.abs(word.length-token.length)<=1&&(word.startsWith(token.slice(0,-1))||token.startsWith(word.slice(0,-1)))))).length/requested.length;
   };
-  const ranked=candidates.map((item,index)=>({item,index,primary:coverage([item.title,item.artist].filter(Boolean).join(' ')),all:coverage([item.title,item.artist,item.album].filter(Boolean).join(' '))}))
-    .filter(entry=>entry.all>=.7).sort((a,b)=>b.primary-a.primary||b.all-a.all||a.index-b.index);
+  const ranked=candidates.map((item,index)=>{
+    const primaryText=[item.title,item.artist].filter(Boolean).join(' '),primaryTokens=new Set(normalize(primaryText).split(' '));
+    return {item,index,lead:primaryTokens.has(requested[0])?1:0,primary:coverage(primaryText),all:coverage([item.title,item.artist,item.album].filter(Boolean).join(' '))};
+  }).filter(entry=>entry.all>=.7).sort((a,b)=>b.lead-a.lead||b.primary-a.primary||b.all-a.all||a.index-b.index);
   return ranked.length?{status:'ambiguous',candidates:ranked.map(entry=>entry.item),message:'A close local metadata match was found; choose a candidate to confirm.'}
     :{status:'none',candidates:[],message:'No matching local media. Check the title or optional filters.'};
 }

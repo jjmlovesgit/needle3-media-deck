@@ -1,6 +1,7 @@
 import createNeedle from '../vendor/needle3/needle-browser.mjs';
 let engine=null,initializing=null,info=null,modelPointer=0;
 const vendor=new URL('../vendor/needle3/',import.meta.url);
+const ROUTING_CONTRACT='Route each explicit local media-player request using the provided tool names, descriptions, and schemas. Distinguish named playback, current transport, media-category filtering, library search, panel visibility, volume, and equalizer operations. Treat library-panel visibility separately from media-category filters. Preserve forward versus backward transport direction. Copy every free-text argument as one complete verbatim span from the user input, preserving its first and last words. Include optional arguments only when explicitly stated. Never invent or rewrite argument values. Return no calls for unsupported requests.';
 async function checkedFile(manifest,name){
  const entry=manifest.files.find(x=>x.name===name);
  const response=await fetch(new URL(name,vendor));
@@ -25,7 +26,7 @@ async function initialize(){
   if(loaded<0)throw new Error('Needle model load failed ('+loaded+')');
   const tools=await (await fetch(new URL('../media-tools.json',import.meta.url))).json();
   const prefix=runtime.ccall('needle_init','number',['string','string','string'],[
-    'Media Deck local media player. Route only explicit requests. Named playback uses play_media. Preserve the beginning of every title. A trailing possessive version phrase is an artist qualifier: Play Born on the Bayou John Fogerty\'s version means title Born on the Bayou and artist John Fogerty, never title Bayou. Almost Cut My Hair must stay Almost Cut My Hair, never Most Cut My Hair. Bare transport uses control_playback. Volume changes use only set_volume; EQ changes use only load_eq_preset. Never add an EQ preset to a volume request. Show or open the Graphic Equalizer uses show_graphic_equalizer_panel; close the Graphic Equalizer uses close_graphic_equalizer_panel. Close the performance monitor uses close_performance_monitor_panel. Skip forward 10 seconds uses only skip_forward_10_seconds. Rewind or go back 10 seconds uses only rewind_back_10_seconds. Show MP3 files uses only show_mp3_files. Show original videos uses only show_original_videos. Show karaoke files uses only show_karaoke_files_or_videos. Show all media uses only show_all_media. Those four requests filter media and never open the library panel. Show the library uses open_media_library_panel. Hide the library uses hide_media_library_panel. Never invent artist, album, query, value, or action. Unsupported requests return no calls.',
+    ROUTING_CONTRACT,
     JSON.stringify(tools),'']);
   if(prefix<0)throw new Error('Needle tool initialization failed; schema may exceed model context ('+prefix+')');
   engine=runtime;

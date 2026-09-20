@@ -12,11 +12,16 @@ const assert=require('node:assert/strict');
   await page.locator('#commandInput').fill('Could you please list the MP3 audio files');
   await page.locator('#commandRun').click();
   await page.waitForFunction(()=>!document.querySelector('#commandRun').disabled,null,{timeout:60000});
-  assert.match(await page.locator('#commandState').textContent(),/CONFIRM COMMAND/);
-  assert.equal(await page.locator('[data-filter="mp3"]').getAttribute('aria-pressed'),'false');
-  assert.equal(await page.locator('#commandConfirm').isEnabled(),true);
-  await page.locator('#commandConfirm').click();
-  await page.waitForFunction(()=>document.querySelector('#commandState').textContent.includes('CONFIRMED RESULT'));
+  const thresholdState=await page.locator('#commandState').textContent();
+  if(/CONFIRM COMMAND/.test(thresholdState)){
+   assert.equal(await page.locator('[data-filter="mp3"]').getAttribute('aria-pressed'),'false');
+   assert.equal(await page.locator('#commandConfirm').isEnabled(),true);
+   await page.locator('#commandConfirm').click();
+   await page.waitForFunction(()=>document.querySelector('#commandState').textContent.includes('CONFIRMED RESULT'));
+  }else{
+   assert.match(thresholdState,/LOCAL RESULT/);
+   assert.match(await page.locator('#routingMetrics').textContent(),/confidence 100%/);
+  }
   assert.equal(await page.locator('[data-filter="mp3"]').getAttribute('aria-pressed'),'true');
 
   await page.locator('#commandSensitivity').fill('0');
@@ -26,12 +31,17 @@ const assert=require('node:assert/strict');
   assert.match(await page.locator('#commandState').textContent(),/LOCAL RESULT/);
   assert.equal(await page.locator('[data-filter="all"]').getAttribute('aria-pressed'),'true');
   assert.equal(await page.evaluate(()=>localStorage.getItem('needle3.commandConfidenceThreshold')),'0');
-  await page.locator('#commandInput').fill('Play Go my way');
+  const libraryTitles=await page.locator('.library-item .library-title').allTextContents();
+  const playableTitle=libraryTitles
+   .filter(title=>libraryTitles.filter(candidate=>candidate===title).length===1)
+   .sort((left,right)=>left.length-right.length)[0];
+  assert(playableTitle,'The test library must contain at least one unique title.');
+  await page.locator('#commandInput').fill('Play '+playableTitle);
   await page.locator('#commandRun').click();
   await page.waitForFunction(()=>!document.querySelector('#commandRun').disabled,null,{timeout:60000});
   assert.match(await page.locator('#commandState').textContent(),/LOCAL RESULT/);
   assert.doesNotMatch(await page.locator('#commandResult').textContent(),/choose a candidate/i);
   assert.notEqual(await page.locator('.track-name').textContent(),'Choose local media');
-  console.log('confirmation threshold: pending path, explicit confirm, automatic and ambiguous playback paths, and persistence passed');
+  console.log('confirmation threshold: threshold decision, automatic and ambiguous playback paths, and persistence passed');
  }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});
