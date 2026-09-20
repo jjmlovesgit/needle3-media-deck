@@ -3,7 +3,7 @@
   "sources": [
     {
       "id": "demo-media-library",
-      "path": "C:\\Projects\\needle3-media-deck-reference-clone\\demo",
+      "path": "..\\..\\demo",
       "readOnly": true
     }
   ]

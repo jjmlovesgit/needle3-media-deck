@@ -1,60 +1,81 @@
-# Media Deck — single-page WASM adaptation
+# Media Deck SPA
 
-This is the active browser app, adapted from the complete reference clone at commit `775fdff`.
+This directory contains the complete browser application, its loopback
+development server, Needle 3 WASM integration, and tests.
 
 ## Run
 
-From this directory, with Node 22+:
+With Node.js 22 or newer:
 
 ```powershell
-node scripts/acquire-needle.mjs  # first setup only: downloads pinned official assets
+node scripts\acquire-needle.mjs
 npm start
 ```
 
-Open [the local console](http://127.0.0.1:8080/). No package installation is needed. The server serves only `spa/app` plus indexed read-only media; it does not expose the rest of the clone.
+Open <http://127.0.0.1:8080/>. No `npm install` step is required. The server
+serves only `app` and the configured read-only media library.
 
-## What is preserved
+The default source in `config/media-sources.json` resolves to the ignored
+`demo` directory at the repository root. Relative source paths resolve from the
+config directory; absolute paths are accepted for machine-specific libraries.
+The browser file picker remains available independently of that indexed source.
 
-The original console markup, CSS, panel order, colors, EQ SVG, presets, meter artwork, spectrum, and oscilloscope are extracted from `../playback_server.py`. `app/styles/reference.css` is an unchanged unescaped extraction; only narrow-screen integration corrections live in `spa.css`. The existing baseline source is untouched.
+## Architecture
 
-The reference's Web Audio EQ and visualization code remains in `reference-console.js`. Necessary adaptations:
-- one persistent video element decodes both MP3 and MP4; audio mode uses the original scope;
-- source switches and library navigation stay in the page;
-- monitor clicks toggle pause/resume;
-- the side-panel icon now hides/shows the in-page library because no extension is required;
-- the local-file link becomes a picker;
-- the browser audio graph initializes before first playback, upmixes mono to both channels, and stops animation work when paused/hidden or reduced motion is requested;
-- native/Python command and wake-word requests are removed from the active frontend, with honest unavailable states in the original command panel.
+- `app/scripts/application.js` exposes the application APIs used by controls
+  and the Needle executor.
+- `library.js`, `matching.js`, and `metadata.js` own media records,
+  classification, and deterministic matching.
+- `player.js` owns playback state around one persistent HTML media element for
+  MP3 and MP4.
+- `needle-client.js` and `needle-worker.js` run one persistent local WASM
+  worker using the full 20-layer model.
+- `tool-executor.js` validates complete tool batches and calls application APIs.
+- `manual-voice.js` owns one-shot, on-device push-to-talk capture.
+- `scripts/serve.mjs` provides the loopback-only static, library, and byte-range
+  media endpoints.
 
-## Boundaries
+Needle chooses `mp3`, `mp4`, or `any` for named playback. Both original and
+karaoke videos are MP4 for playback routing while remaining separate library
+classifications. Generic normalization removes a repeated trailing format word
+and optional artist/album values only when they duplicate the normalized title;
+it contains no catalog titles or catalog-specific routing rules.
 
-The Node development adapter reads the generated demo library at `C:\Projects\needle3-media-deck-reference-clone\demo` through `config/media-sources.json`. It uses recursive canonical indexing, stable IDs, byte-range streaming, and no writes to media. Picker files remain supported independently.
+## Browser boundaries
 
-With the local server running, `npm run test:catalog` drives every configured catalog item through deterministic metadata matching and real playback in an installed Chromium browser. It reports MP3, original MP4, and karaoke MP4 results separately and writes the generated report to `demo/catalog-regression.json`. The script reads the catalog dynamically and contains no media titles.
+An ordinary web page cannot enumerate arbitrary local folders. The loopback
+server provides the configured indexed library, while the file picker grants
+session access only to files selected by the user. File picker selections do
+not persist across reloads.
 
-Typed JSDoc modules own player state, library records, matching, and browser media access. The reference renderer is an explicit compatibility module; its EQ DOM rendering is retained to preserve the UI and is not a model execution interface.
+Manual speech requires Chrome or Edge on-device recognition and may require the
+browser to install a language pack. The microphone is opened only while the
+button or **Ctrl+Space** is held. VAD and wake-word activation are disabled.
 
-`needle-client.js` creates one persistent module worker running the real Needle 3 WASM engine and full 20-layer model. Typed and manually spoken commands use the tool schema, strict argument/request validation, and application APIs. Manual speech uses Chrome/Edge on-device recognition while the microphone button or Ctrl+Space is held. The UI shows measured routing metrics and validated calls. See [Needle integration](docs/NEEDLE-INTEGRATION.md) for provenance, tests, and current accuracy limits. VAD and wake-word integration remain disabled.
+Needle assets live in ignored `app/vendor/needle3`. The acquisition script pins
+and verifies the official release; the server and worker verify installed
+assets before use. The running SPA otherwise uses loopback requests only.
 
-No Python process, native host, FFmpeg, media downloader, or Tauri runtime is used by this app. Manual push-to-talk captures one microphone command through the browser's on-device speech API; raw audio and transcripts are not persisted. The browser may need to install its local language pack on first use. Needle model assets are acquired once by the setup script; the running app otherwise makes only loopback requests. These original files still exist in the complete clone as inactive reference material.
-
-## Current limits
-
-Filename/folder metadata and reference track-folder albums are supported. Embedded tags, duration/bitrate sorting, and content-based duplicate matching are not implemented. The original technical sort options remain visibly disabled pending real metadata.
-
-The shared folder requires the loopback development server. A pure static deployment supports the file picker and needs a future browser-permission adapter for directory indexing. This is not yet an installed offline distribution or a working voice demo.
-
-## Validation
-
-`npm test` runs focused checks for playback, classification, matching, source containment, reference CSS/artwork parity, and tool validation. `node tests/needle-integration.cjs` tests the actual installed model through the UI using the same Playwright environment variables below.
-
-The browser smoke test uses an existing Playwright installation and Edge:
+## Test
 
 ```powershell
-$env:PLAYWRIGHT_MODULE = '<path to existing Playwright package>'
-$env:TEST_ARTIFACTS_DIR = '<writable screenshot directory>'
-node tests/browser-smoke.cjs
+npm test
+npm run test:catalog
 ```
 
-Verified against the shared library: real MP3/MP4 decoding, one persistent media element, no page navigation on switching, first-play scope pixels, linked Rock EQ, seek/stop/volume, library hide/show, album order, one worker, no voice/backend requests, no page errors, and no horizontal overflow at 390/320px. Desktop and narrow screenshots were visually inspected. The typed Needle test additionally covers real playback, volume, EQ, panels, ambiguity, rejected unintended arguments, warm offline inference, reload, and a single persistent worker. Voice lifecycle soak testing remains pending.
+The first command runs focused module tests. The catalog regression dynamically
+loads every configured media item in a Chromium browser, checks deterministic
+MP3/MP4 matching and actual playback, and performs live Needle MP3/MP4 routes.
+It embeds no real library titles. The generated report is ignored under
+`demo/catalog-regression.json`.
 
+Additional browser tests in `tests` use an existing Playwright installation:
+
+```powershell
+$env:PLAYWRIGHT_MODULE = '<path to an existing Playwright package>'
+$env:TEST_ARTIFACTS_DIR = '<writable artifact directory>'
+node tests\browser-smoke.cjs
+```
+
+See [Needle integration](docs/NEEDLE-INTEGRATION.md) for asset provenance,
+execution boundaries, test coverage, and measured resource use.

@@ -2,11 +2,15 @@ import { verifyNeedleAssets } from './verify-needle.mjs';
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { MediaSource, byteRange, within } from './media-source.mjs';
 await verifyNeedleAssets();
 const root = path.resolve(import.meta.dirname, '../app');
-const config = JSON.parse(await readFile(new URL('../config/media-sources.json', import.meta.url), 'utf8'));
-const media = new MediaSource(config.sources[0]);
+const configUrl = new URL('../config/media-sources.json', import.meta.url);
+const config = JSON.parse(await readFile(configUrl, 'utf8'));
+const configuredSource = config.sources[0];
+const media = new MediaSource({ ...configuredSource,
+  path: path.resolve(path.dirname(fileURLToPath(configUrl)), configuredSource.path) });
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.mjs': 'text/javascript', '.wasm': 'application/wasm', '.json': 'application/json' };
 http.createServer(async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');

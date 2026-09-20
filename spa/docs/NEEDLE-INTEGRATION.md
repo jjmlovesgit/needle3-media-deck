@@ -1,6 +1,6 @@
 # Needle 3 typed-command integration
 
-The reference UI now runs real local Needle inference in one module worker. Reload the page, wait for **WASM READY**, enter a command and select **Run Command**, or hold the microphone button or **Ctrl+Space**, speak, and release. Manual speech uses the browser's on-device recognition API. VAD and wake-word controls remain disabled.
+The Media Deck SPA runs real local Needle inference in one module worker. Reload the page, wait for **WASM READY**, enter a command and select **Run Command**, or hold the microphone button or **Ctrl+Space**, speak, and release. Manual speech uses the browser's on-device recognition API. VAD and wake-word controls remain disabled.
 
 ## Try
 
@@ -8,10 +8,11 @@ The reference UI now runs real local Needle inference in one module worker. Relo
 - Load the Rock EQ preset
 - Close the equalizer
 - Show karaoke videos
-- Play Example Track Alpha
+- Play Example Track Alpha MP3
+- Play Example Video Delta MP4
 - Pause playback
 
-Exact titles resolve through the application library. Partial or duplicate matches present candidates and never start a guessed track. Manual controls remain available.
+Exact titles resolve through the application library. Partial or duplicate matches produce a deterministic candidate list; automatic execution may select its first result when the confirmation policy permits, while confirmation mode lets the user review the proposal. Manual controls remain available.
 
 ## Assets and provenance
 
@@ -27,9 +28,9 @@ The original wrapper is preserved. The generated `needle-browser.mjs` adds an ES
 
 A single initialized worker serializes requests and resets per-command model state while retaining the model and tool catalogue. Application code validates the entire proposed batch before executing any action. Tool names, arguments, types, enums, numeric ranges, and their presence in the request are checked. The executor calls application APIs; model output cannot supply code, paths, URLs, or DOM selectors.
 
-Validation never changes the tool selected by Needle or repairs its free-text arguments. Incorrect or invented proposals are rejected and displayed. Confidence is displayed but is not treated as proof of correctness.
+Validation never changes the tool or MP3/MP4 type selected by Needle. Before deterministic matching, the executor removes a trailing format word and drops optional artist or album values only when they duplicate the normalized title. These generic rules contain no library titles. Incorrect or invented proposals are rejected and displayed. Confidence is displayed but is not treated as proof of correctness.
 
-Manual push-to-talk is the only microphone owner. Speech-pack readiness, microphone acquisition, and creation of a fresh recognition object happen sequentially for each hold. Release includes a 450 ms final-word tail. Recognition is forced to `processLocally`; no raw audio or transcript history is stored. The browser may install its local language pack on first use. No VAD, wake-word model, native executor, or background listener is added. Demo media remains read-only at `C:\Projects\needle3-media-deck-reference-clone\demo`, served through the existing loopback adapter. Offline warm inference works after assets load; a fresh page still needs the local server. This is not a service-worker-cached installed app.
+Manual push-to-talk is the only microphone owner. Speech-pack readiness, microphone acquisition, and creation of a fresh recognition object happen sequentially for each hold. Release includes a 450 ms final-word tail. Recognition is forced to `processLocally`; no raw audio or transcript history is stored. The browser may install its local language pack on first use. No VAD, wake-word model, native executor, or background listener is added. Demo media remains read-only in the configured source directory and is served through the loopback adapter. Offline warm inference works after assets load; a fresh page still needs the local server. This is not a service-worker-cached installed app.
 
 ## Validation and limits (2026-09-20)
 

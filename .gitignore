@@ -1,99 +1,47 @@
-# Python environments and caches
-.venv/
-venv/
-env/
-__pycache__/
-*.py[cod]
-*.pyo
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.coverage
-htmlcov/
-
-# Generated media, downloads, indexes, and runtime state
-output/
+# Local media and generated regression reports
 /demo/
-cache/
-state/
-downloads/
-*.part
-*.ytdl
 
-# Generated smoke-test artifacts in the project root
-/count_in_smoke.*
-/layout_smoke.*
-/marker_smoke.*
-/modern_compact.*
-/modern_smoke.*
+# Downloaded, hash-verified Needle runtime and model assets
+/spa/app/vendor/needle3/
 
-# Machine-specific native-host output
-/KaraokeNativeHost.exe
-/host_manifest.json
-/extension_public_key.der
+# Optional catalog utility work and network cache
+/utilities/media-catalog/work/
+/utilities/media-catalog/.cache/
 
-# Private keys, certificates, credentials, and local environment files
-*.pem
-*.key
-*.pfx
-*.p12
-*.cer
-*.crt
-.env
-.env.*
-!.env.example
-
-# Compiled and packaged release artifacts
-*.exe
-*.dll
-*.pdb
-*.msi
-*.msix
-*.appx
-*.zip
-*.7z
-*.tar
-*.gz
-bin/
-obj/
-build/
-dist/
-publish/
-installer/dist/
-installer/.tmp/
-installer-gui/dist/
-installer-bootstrap/dist/
-.tmp/
-.dotnet/
-.dotnet-home/
-.nuget/
-.appdata/
-
-# JavaScript dependencies and tooling caches
+# JavaScript dependencies and tool caches
 node_modules/
 .npm/
 .parcel-cache/
 
-# Model policy: keep the small licensed wake-word model, not downloaded weights
-models/*
-!models/hey_jarvis_v0.1.onnx
-!models/README.md
-
-# Logs, temporary files, and editor metadata
+# Local configuration, logs, and temporary files
+.env
+.env.*
+!.env.example
 *.log
 *.tmp
 *.temp
 *.bak
 *.swp
 *~
+
+# Editor and operating-system metadata
 .vs/
 .vscode/
 .idea/
-*.suo
-*.user
-*.userosscache
-
-# Windows and macOS metadata
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# Local working data and generated artifacts; never repository source
+/.venv/
+/__pycache__/
+/cache/
+/state/
+/output/
+/dist/
+/*.exe
+/*.pem
+/*.der
+/host_manifest.json
+/*_smoke.*
+/modern_compact.*

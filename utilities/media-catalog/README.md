@@ -6,7 +6,7 @@ This standalone utility creates a reviewable metadata catalog for a local MP3/MP
 
 ```powershell
 cd utilities\media-catalog
-node catalog.mjs scan --source "C:\Projects\karaoke_Agent\output"
+node catalog.mjs scan --source "C:\path\to\your\media"
 ```
 
 The default output is `work/catalog.local.json`. It contains stable file IDs, relative paths, normalized fields, and the filename/folder values from which each field was inferred.
