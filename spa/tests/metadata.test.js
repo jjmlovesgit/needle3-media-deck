@@ -33,6 +33,12 @@ test('matching normalizes punctuation but preserves ambiguity and optional const
   assert.equal(matchMedia(items,{title:'unknown'}).status,'none');
   assert.equal(matchMedia(items,{title:'Ab Signal',artist:'unknown'}).status,'none');
 });
+test('structured artist-title input resolves a redundant title-as-artist argument generically', () => {
+  const media=[{id:'structured',title:'Twilight Beacon',artist:'Night Ensemble',album:'Example Album',kind:'mp3'}];
+  assert.equal(matchMedia(media,{title:'Night Ensemble - Twilight Beacon',artist:'Twilight Beacon'}).candidates[0].id,'structured');
+  assert.equal(matchMedia(media,{title:'Night Ensemble — Twilight Beacon',artist:'Night Ensemble'}).status,'match');
+  assert.equal(matchMedia(media,{title:'Night Ensemble - Twilight Beacon',artist:'Different Artist'}).status,'none');
+});
 test('invalid inputs and unrelated words never produce a match', () => {
   for(const request of [{title:''},{title:'!!!'},{title:'Ab Signal',format:'exe'},{title:'Ab Signal',run:'code'}]) assert.equal(matchMedia(items,request).status,'invalid');
   assert.equal(matchMedia(items,{title:'delete all files'}).status,'none');

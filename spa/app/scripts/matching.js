@@ -1,5 +1,9 @@
 import { normalizeMediaText as normalize } from './metadata.js';
 /** @typedef {{title:string,artist?:string,album?:string,format?:'any'|import('./types.js').MediaKind}} MediaRequest */
+function structuredArtistTitle(value) {
+  const match = /^\s*(.+?)\s+[-–—]\s+(.+?)\s*$/.exec(value);
+  return match ? { artist: normalize(match[1]), title: normalize(match[2]) } : null;
+}
 /** Deterministic matching only. Never executes a partial or ambiguous result.
  * @param {import('./types.js').MediaItem[]} items @param {MediaRequest} request
  */
@@ -11,6 +15,17 @@ export function matchMedia(items, request) {
     return { status: 'invalid', candidates: [], message: 'Enter a title and valid optional artist, album, and format.' };
   }
   const title = normalize(request.title);
+  const structured = structuredArtistTitle(request.title);
+  if (structured) {
+    const structuredExact = items.filter(item => (!request.format || request.format === 'any' || item.kind === request.format)
+      && (!request.album || normalize(item.album || '') === normalize(request.album))
+      && normalize(item.artist || '') === structured.artist && normalize(item.title) === structured.title
+      && (!request.artist || normalize(request.artist) === structured.artist || normalize(request.artist) === structured.title));
+    if (structuredExact.length === 1) return { status: 'match', candidates: structuredExact,
+      message: 'One exact structured artist-title match. Choose it to play.' };
+    if (structuredExact.length > 1) return { status: 'ambiguous', candidates: structuredExact,
+      message: 'Several matching versions. Choose a file or specify album or format.' };
+  }
   const candidates = items.filter(item => (!request.format || request.format === 'any' || item.kind === request.format)
     && (!request.artist || normalize(item.artist || '') === normalize(request.artist))
     && (!request.album || normalize(item.album || '') === normalize(request.album)));

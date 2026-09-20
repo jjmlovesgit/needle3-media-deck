@@ -12,7 +12,7 @@
         },
         "artist": {
           "type": "string",
-          "description": "An artist explicitly named by the user, including the name before the possessive phrase 'artist's version'.",
+          "description": "An artist explicitly named by the user. In an Artist - Title span, this is the text before the separator, never the title after it. Omit this field when the artist role is uncertain.",
           "minLength": 1
         },
         "album": {
