@@ -21,7 +21,7 @@ node catalog.mjs enrich --catalog work/catalog.matches.json --allow-network
 
 `plan` writes `work/enrichment-plan.json` locally so the exact titles and artists that would be transmitted can be reviewed first. Full albums, compilations, and standalone files matching a split-track album are marked `excluded-album` and omitted. Numbered files inside album track folders remain eligible as individual songs.
 
-`match` performs recording search and writes `work/catalog.matches.json`. It retains only the candidate recording ID, title, artist, and match score. It does not change catalog metadata. `enrich` then performs an ID lookup only for records with `matched` status; `review`, `unmatched`, and `excluded-album` records never trigger metadata lookups. Both network commands require either `--allow-network` or `--offline`.
+`match` performs recording search and writes `work/catalog.matches.json`. It retains and caches only the candidate recording ID, title, artist, and match score, discarding other fields returned by search. It does not change catalog metadata. `enrich` then performs an ID lookup only for records with `matched` status; `review`, `unmatched`, and `excluded-album` records never trigger metadata lookups. Both network commands require either `--allow-network` or `--offline`.
 
 The default enriched output is `work/catalog.enriched.json`. Search and metadata responses use separate caches in `.cache/musicbrainz`, and requests are spaced at least 1.1 seconds apart. The utility sends this contact URL in its User-Agent:
 

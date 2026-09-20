@@ -84,6 +84,8 @@ test('match and metadata phases use separate requests and caches', async () => {
   const item = { id: 'one', ...local, local, aliases: [], provenance: {} };
   const matches = await matchCatalog({ schemaVersion: 1, items: [item] }, client);
   assert.equal(matches.items[0].status, 'matched'); assert.equal(requests, 1);
+  const searchCache = await readFile(path.join(root, (await import('node:crypto')).createHash('sha256').update(musicBrainzQuery(item)).digest('hex') + '.json'), 'utf8');
+  assert.doesNotMatch(searchCache, /"length"|"releases"/);
   const first = await enrichCatalog(matches, client), second = await enrichCatalog(matches, client);
   assert.equal(first.items[0].status, 'enriched'); assert.equal(second.items[0].status, 'enriched'); assert.equal(requests, 2);
 });

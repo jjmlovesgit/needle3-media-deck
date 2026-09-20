@@ -142,6 +142,10 @@ export function musicBrainzQuery(item) {
 }
 
 const delay = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+const minimalSearchResponse = data => ({ recordings: (data?.recordings || []).map(recording => ({
+  id: recording.id, title: recording.title, score: recording.score,
+  'artist-credit': (recording['artist-credit'] || []).map(credit => ({ name: credit.name || credit.artist?.name || '' }))
+})) });
 export class MusicBrainzClient {
   constructor({ cacheDirectory, contact, fetchImpl = fetch, intervalMs = 1100, offline = false }) {
     Object.assign(this, { cacheDirectory, contact, fetchImpl, intervalMs, offline }); this.lastRequestAt = 0;
@@ -150,7 +154,7 @@ export class MusicBrainzClient {
     const query = musicBrainzQuery(item), key = createHash('sha256').update(query).digest('hex'), cacheFile = path.join(this.cacheDirectory, key + '.json');
     const url = new URL('https://musicbrainz.org/ws/2/recording/');
     url.searchParams.set('query', query); url.searchParams.set('fmt', 'json'); url.searchParams.set('limit', '10');
-    return this.request(cacheFile, url, { recordings: [], offlineCacheMiss: true });
+    return this.request(cacheFile, url, { recordings: [], offlineCacheMiss: true }, minimalSearchResponse);
   }
   async lookup(recordingId) {
     if (!/^[a-f0-9-]{36}$/i.test(recordingId)) throw new Error('Invalid MusicBrainz recording ID.');
@@ -159,8 +163,12 @@ export class MusicBrainzClient {
     url.searchParams.set('inc', 'artist-credits+releases'); url.searchParams.set('fmt', 'json');
     return this.request(cacheFile, url, null);
   }
-  async request(cacheFile, url, offlineFallback) {
-    try { return JSON.parse(await readFile(cacheFile, 'utf8')); } catch (error) {
+  async request(cacheFile, url, offlineFallback, transform = value => value) {
+    try {
+      const cached = transform(JSON.parse(await readFile(cacheFile, 'utf8')));
+      await writeFile(cacheFile, JSON.stringify(cached, null, 2) + '\n', 'utf8');
+      return cached;
+    } catch (error) {
       if (error.code !== 'ENOENT') throw error;
       if (this.offline) return offlineFallback;
     }
@@ -174,7 +182,7 @@ export class MusicBrainzClient {
       if (![429, 503].includes(response.status) || attempt === 2) throw new Error(`MusicBrainz request failed with HTTP ${response.status}`);
       await delay(1500 * (attempt + 1));
     }
-    const data = await response.json();
+    const data = transform(await response.json());
     await writeFile(cacheFile, JSON.stringify(data, null, 2) + '\n', 'utf8');
     return data;
   }
