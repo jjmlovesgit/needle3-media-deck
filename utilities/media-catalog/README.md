@@ -18,7 +18,7 @@ node catalog.mjs plan --catalog work/catalog.local.json
 node catalog.mjs enrich --catalog work/catalog.local.json --allow-network
 ```
 
-`plan` writes `work/enrichment-plan.json` locally so the exact titles and artists that would be transmitted can be reviewed first. `enrich` requires either `--allow-network` or `--offline`; it will not contact MusicBrainz implicitly.
+`plan` writes `work/enrichment-plan.json` locally so the exact titles and artists that would be transmitted can be reviewed first. Full albums, compilations, and standalone files matching a split-track album are marked `excluded-album` and omitted. Numbered files inside album track folders remain eligible as individual songs. `enrich` requires either `--allow-network` or `--offline`; it will not contact MusicBrainz implicitly.
 
 The default enriched output is `work/catalog.enriched.json`. Responses are cached in `.cache/musicbrainz`, and requests are spaced at least 1.1 seconds apart. The utility sends this contact URL in its User-Agent:
 

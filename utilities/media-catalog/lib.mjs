@@ -47,7 +47,29 @@ export async function scanLibrary(source) {
         artist: local.artist ? 'filename' : null, album: local.album ? 'folder' : null,
         track: local.track ? 'filename' : null }, local });
   }
-  return { schemaVersion: 1, source: root, generatedAt: new Date().toISOString(), items };
+  return { schemaVersion: 1, source: root, generatedAt: new Date().toISOString(), items: markEnrichmentEligibility(items) };
+}
+
+function tokenCoverage(left, right) {
+  const a = new Set(normalize(left).split(' ').filter(Boolean)), b = new Set(normalize(right).split(' ').filter(Boolean));
+  if (!a.size || !b.size) return 0;
+  return [...a].filter(token => b.has(token)).length / Math.min(a.size, b.size);
+}
+
+/** Mark long-form album media without excluding the individual songs inside its track folder. */
+export function markEnrichmentEligibility(items) {
+  const albumNames = [...new Set(items.map(item => item.album).filter(Boolean))];
+  return items.map(item => {
+    const individualTrack = Number.isInteger(item.track) || /(?:^|[\\/]).+\s-\sTracks[\\/]/i.test(item.relativePath);
+    const longFormLabel = /\b(?:full|complete)\s+album\b|\bgreatest\s+hits\b|\bbest\s+of\b|\banthology\b|\bcompilation\b/i.test(item.title);
+    const duplicatesSplitAlbum = !individualTrack && albumNames.some(album => {
+      const shorter = Math.min(normalize(album).split(' ').length, normalize(item.title).split(' ').length);
+      return shorter >= 3 && tokenCoverage(album, item.title) >= .85;
+    });
+    const excluded = !individualTrack && (longFormLabel || duplicatesSplitAlbum);
+    return { ...item, enrichmentType: excluded ? 'album' : 'song', eligibleForEnrichment: !excluded,
+      ...(excluded ? { status: 'excluded-album', exclusionReason: longFormLabel ? 'long-form album label' : 'matching split-track album' } : {}) };
+  });
 }
 
 function similarity(left, right) {
@@ -129,7 +151,8 @@ export class MusicBrainzClient {
 
 export async function enrichCatalog(catalog, client, limit = Infinity) {
   const items = []; let queried = 0;
-  for (const item of catalog.items) {
+  for (const item of markEnrichmentEligibility(catalog.items)) {
+    if (!item.eligibleForEnrichment) { items.push(item); continue; }
     if (queried >= limit) { items.push(item); continue; }
     const data = await client.search(item); queried++;
     const ranked = rankMusicBrainzCandidates(item.local || item, data.recordings || []), decision = decideCandidate(item.local || item, ranked);

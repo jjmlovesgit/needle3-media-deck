@@ -2,7 +2,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { enrichCatalog, musicBrainzQuery, MusicBrainzClient, scanLibrary, writeJson } from './lib.mjs';
+import { enrichCatalog, markEnrichmentEligibility, musicBrainzQuery, MusicBrainzClient, scanLibrary, writeJson } from './lib.mjs';
 
 const directory = path.dirname(fileURLToPath(import.meta.url)), values = process.argv.slice(2), command = values.shift();
 const option = (name, fallback) => { const index = values.indexOf('--' + name); return index >= 0 ? values[index + 1] : fallback; };
@@ -18,10 +18,12 @@ try {
     const input = path.resolve(option('catalog', path.join(directory, 'work', 'catalog.local.json')));
     const output = path.resolve(option('output', path.join(directory, 'work', 'enrichment-plan.json')));
     const catalog = JSON.parse(await readFile(input, 'utf8'));
+    const eligible = markEnrichmentEligibility(catalog.items).filter(item => item.eligibleForEnrichment);
     const plan = { schemaVersion: 1, provider: 'MusicBrainz', endpoint: 'https://musicbrainz.org/ws/2/recording/',
       notice: 'Each query contains locally inferred title and optional artist metadata.',
-      queries: catalog.items.map(item => ({ id: item.id, relativePath: item.relativePath, query: musicBrainzQuery(item) })) };
-    await writeJson(output, plan); console.log(JSON.stringify({ output, queries: plan.queries.length }, null, 2));
+      excludedAlbums: catalog.items.length - eligible.length,
+      queries: eligible.map(item => ({ id: item.id, relativePath: item.relativePath, query: musicBrainzQuery(item) })) };
+    await writeJson(output, plan); console.log(JSON.stringify({ output, songQueries: plan.queries.length, excludedAlbums: plan.excludedAlbums }, null, 2));
   } else if (command === 'enrich') {
     const input = path.resolve(option('catalog', path.join(directory, 'work', 'catalog.local.json')));
     const output = path.resolve(option('output', path.join(directory, 'work', 'catalog.enriched.json')));

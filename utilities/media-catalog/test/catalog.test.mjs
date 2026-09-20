@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { applyDecision, decideCandidate, enrichCatalog, inferLocalMetadata, musicBrainzQuery, MusicBrainzClient, rankMusicBrainzCandidates, scanLibrary } from '../lib.mjs';
+import { applyDecision, decideCandidate, enrichCatalog, inferLocalMetadata, markEnrichmentEligibility, musicBrainzQuery, MusicBrainzClient, rankMusicBrainzCandidates, scanLibrary } from '../lib.mjs';
 
 test('local inference produces uniform metadata without media-specific rules', () => {
   assert.deepEqual(inferLocalMetadata('Example Artist - Example Track Alpha_20260917_114941_token/source.mp4'),
@@ -20,6 +20,18 @@ test('scanner reads supported files and never alters them', async () => {
   const catalog = await scanLibrary(root);
   assert.equal(catalog.items.length, 1); assert.equal(catalog.items[0].title, 'Example Track');
   assert.equal(await readFile(media, 'utf8'), 'unchanged');
+});
+
+test('album media is excluded while its individual songs remain eligible', () => {
+  const items = markEnrichmentEligibility([
+    { id: 'album', title: 'Example Collection Full Album', album: '', track: null, relativePath: 'Example Collection/source.mp4' },
+    { id: 'track', title: 'Example Song', album: 'Example Collection', track: 1, relativePath: 'Example Collection - Tracks/01 - Example Song.mp3' },
+    { id: 'single', title: 'Standalone Song', album: '', track: null, relativePath: 'Standalone Song/source.mp4' }
+  ]);
+  assert.equal(items[0].eligibleForEnrichment, false);
+  assert.equal(items[0].status, 'excluded-album');
+  assert.equal(items[1].eligibleForEnrichment, true);
+  assert.equal(items[2].eligibleForEnrichment, true);
 });
 
 const local = { title: 'Example Track Alpha', artist: 'Example Artist', album: '', track: null };
