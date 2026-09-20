@@ -1,7 +1,7 @@
 import createNeedle from '../vendor/needle3/needle-browser.mjs';
 let engine=null,initializing=null,info=null,modelPointer=0;
 const vendor=new URL('../vendor/needle3/',import.meta.url);
-const ROUTING_CONTRACT='Route each explicit local media-player request using the provided tool names, descriptions, and schemas. Distinguish named playback, current transport, media-category filtering, library search, panel visibility, volume, and equalizer operations. Treat library-panel visibility separately from media-category filters. Preserve forward versus backward transport direction. Copy every free-text argument as one complete verbatim span from the user input, preserving its first and last words. Include optional arguments only when explicitly stated. Never invent or rewrite argument values. Return no calls for unsupported requests.';
+const ROUTING_CONTRACT='Route each explicit local media-player request using the provided tool names, descriptions, and schemas. Distinguish named playback, current transport, media-category filtering, library search, panel visibility, volume, and equalizer operations. Treat library-panel visibility separately from media-category filters. Preserve forward versus backward transport direction. Copy every free-text argument as one complete verbatim span from the user input, preserving its first and last words. Include every explicitly stated constraint, including a requested media format. Include optional arguments only when explicitly stated. Never invent or rewrite argument values. Return no calls for unsupported requests.';
 async function checkedFile(manifest,name){
  const entry=manifest.files.find(x=>x.name===name);
  const response=await fetch(new URL(name,vendor));

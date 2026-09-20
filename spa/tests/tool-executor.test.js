@@ -40,6 +40,14 @@ test('preserves the beginning of an explicitly requested title',()=>{
  assert.deepEqual(validateCalls([call('play_media',{title,artist})],transcript),[call('play_media',{title,artist})]);
  assert.throws(()=>validateCalls([call('play_media',{title:"Horizon Example Artist's version"})],transcript),/omitted the beginning/);
 });
+test('requires Needle to preserve an explicitly requested playback format',()=>{
+ const title='Example Artist Example Track';
+ assert.deepEqual(validateCalls([call('play_media',{title,format:'original_mp4'})],'Play Example Artist Example Track original video'),
+  [call('play_media',{title,format:'original_mp4'})]);
+ assert.throws(()=>validateCalls([call('play_media',{title})],'Play Example Artist Example Track original video'),/requested media format/);
+ assert.throws(()=>validateCalls([call('play_media',{title,format:'original_mp4'})],'Play Example Artist Example Track karaoke video'),/requested media format/);
+ assert.throws(()=>validateCalls([call('play_media',{title,format:'any'})],'Play Example Artist Example Track MP3'),/requested media format/);
+});
 test('accepts an exact title-only playback request but rejects an invented title',()=>{
  const title='Example Ensemble Anthology';
  assert.deepEqual(validateCalls([call('play_media',{title})],title),[call('play_media',{title})]);

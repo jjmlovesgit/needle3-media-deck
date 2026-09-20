@@ -42,6 +42,8 @@ export function validateCalls(calls,transcript){
   }
   if(call.name==='play_media'&&!mentions(text,phrases.play)&&normalize(args.title)!==text)throw new Error('Playback was not requested.');
   if(call.name==='play_media'){
+   const requestedFormat=mentions(text,['karaoke'])?'karaoke_mp4':mentions(text,['mp3'])?'mp3':mentions(text,['original video','original videos'])?'original_mp4':null;
+   if(requestedFormat&&args.format!==requestedFormat)throw new Error('Needle omitted or changed the explicitly requested media format. Nothing was played.');
    const explicit=/^(?:please\s+)?(?:play|resume|continue)\s+(.+)$/i.exec(transcript.trim());
    if(explicit&&normalize(explicit[1]).split(' ')[0]!==normalize(args.title).split(' ')[0])throw new Error('Needle omitted the beginning of the requested title. Nothing was played.');
   }

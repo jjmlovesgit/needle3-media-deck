@@ -21,6 +21,7 @@
         },
         "format": {
           "type": "string",
+          "description": "Required when the user explicitly requests a format. Map MP3 or audio to mp3, original video to original_mp4, and karaoke to karaoke_mp4. Use any only when the user explicitly says any format.",
           "enum": [
             "any",
             "mp3",
