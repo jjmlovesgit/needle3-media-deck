@@ -2,12 +2,12 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { enrichCatalog, markEnrichmentEligibility, matchCatalog, musicBrainzQuery, MusicBrainzClient, scanLibrary, writeJson } from './lib.mjs';
+import { enrichCatalog, markEnrichmentEligibility, matchCatalog, musicBrainzQuery, MusicBrainzClient, scanLibrary, stageCatalog, writeJson } from './lib.mjs';
 
 const directory = path.dirname(fileURLToPath(import.meta.url)), values = process.argv.slice(2), command = values.shift();
 const option = (name, fallback) => { const index = values.indexOf('--' + name); return index >= 0 ? values[index + 1] : fallback; };
 const has = name => values.includes('--' + name);
-const usage = () => console.log('Usage:\n  node catalog.mjs scan --source <media-directory> [--output <catalog.json>]\n  node catalog.mjs plan [--catalog <catalog.json>] [--output <plan.json>]\n  node catalog.mjs match [--catalog <local.json>] [--output <matches.json>] [--limit <count>] [--require-artist] (--allow-network | --offline)\n  node catalog.mjs enrich [--catalog <matches.json>] [--output <enriched.json>] [--limit <count>] (--allow-network | --offline)');
+const usage = () => console.log('Usage:\n  node catalog.mjs scan --source <media-directory> [--output <catalog.json>]\n  node catalog.mjs plan [--catalog <catalog.json>] [--output <plan.json>]\n  node catalog.mjs match [--catalog <local.json>] [--output <matches.json>] [--limit <count>] [--require-artist] (--allow-network | --offline)\n  node catalog.mjs enrich [--catalog <matches.json>] [--output <enriched.json>] [--limit <count>] (--allow-network | --offline)\n  node catalog.mjs stage [--catalog <enriched.json>] [--destination <directory>]');
 const checkedLimit = () => {
   const raw = option('limit', 'Infinity'), limit = raw === 'Infinity' ? Infinity : Number(raw);
   if ((!Number.isInteger(limit) || limit < 1) && limit !== Infinity) throw new Error('--limit must be a positive integer.');
@@ -49,5 +49,10 @@ try {
     checkedNetwork(); const catalog = JSON.parse(await readFile(input, 'utf8'));
     const enriched = await enrichCatalog(catalog, client(contact), checkedLimit()); await writeJson(output, enriched);
     console.log(JSON.stringify({ output, files: enriched.items.length, phase: enriched.phase, counts: enriched.counts }, null, 2));
+  } else if (command === 'stage') {
+    const input = path.resolve(option('catalog', path.join(directory, 'work', 'catalog.enriched.json')));
+    const destination = path.resolve(option('destination', path.join(directory, 'work', 'demo-library')));
+    const catalog = JSON.parse(await readFile(input, 'utf8')), manifest = await stageCatalog(catalog, destination);
+    console.log(JSON.stringify({ destination, files: manifest.files, manifest: path.join(destination, 'catalog.json') }, null, 2));
   } else { usage(); process.exitCode = command ? 1 : 0; }
 } catch (error) { console.error(error.message); process.exitCode = 1; }

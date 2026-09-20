@@ -39,4 +39,16 @@ Lookup normalization removes generic promotional suffixes such as “official vi
 
 Each file has uniform `title`, `artist`, `album`, `track`, `year`, `durationMs`, `musicBrainzRecordingId`, `aliases`, `status`, `confidence`, and `provenance` fields. The catalog also preserves the source-relative path and raw local inference for auditing.
 
+## Build an isolated demo library
+
+After reviewing the enriched catalog, copy only its `enriched` records into a new directory:
+
+```powershell
+node catalog.mjs stage --catalog work/catalog.enriched.json --destination work/demo-library
+```
+
+The source library remains unchanged. Staging creates a new directory, copies each selected file once, and writes `catalog.json` beside the media. Files are grouped by artist and use portable `Artist - Title [stable-id].ext` names. The stable suffix prevents two recordings with the same display metadata from colliding. The command rejects an existing destination, any catalog path that resolves outside the source library, and a destination inside the source library.
+
+The manifest contains only staged relative paths and normalized metadata; it does not expose the original absolute source path. Records with `review`, `unmatched`, `excluded-album`, `excluded-long-form`, or `skipped-no-artist` status are not copied.
+
 Run `npm test` from this directory. MusicBrainz documents its [API](https://musicbrainz.org/doc/MusicBrainz_API), [recording search fields](https://musicbrainz.org/doc/MusicBrainz_API/Search), and [rate limits](https://musicbrainz.org/doc/MusicBrainz_API/Rate_Limiting).

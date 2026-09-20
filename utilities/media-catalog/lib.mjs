@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
-import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { copyFile, mkdir, readFile, readdir, realpath, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
@@ -136,14 +137,14 @@ export function applyRecordingMetadata(item, recording) {
   const artist = artistCredit(recording), release = bestRelease(recording);
   const selected = { title: recording.title || item.title, artist, album: release?.title || '',
     year: release?.date ? Number(String(release.date).slice(0, 4)) || null : null,
-    durationMs: Number(recording.length) || null };
+    durationMs: Number(recording.length) || item.durationMs || null };
   const aliases = [...new Set([item.title, ...(item.aliases || [])].filter(value => value && normalize(value) !== normalize(selected.title)))];
   return { ...item, title: selected.title, artist: selected.artist || item.artist, album: selected.album || item.album,
     year: selected.year, durationMs: selected.durationMs, musicBrainzRecordingId: recording.id,
     aliases, status: 'enriched', provenance: { title: 'musicbrainz',
       artist: selected.artist ? 'musicbrainz' : item.provenance.artist, album: selected.album ? 'musicbrainz' : item.provenance.album,
       track: item.provenance.track, year: selected.year ? 'musicbrainz' : null,
-      durationMs: selected.durationMs ? 'musicbrainz' : null } };
+      durationMs: Number(recording.length) ? 'musicbrainz' : item.provenance.durationMs || 'local-probe' } };
 }
 
 export function prepareLookupMetadata(item) {
@@ -244,6 +245,62 @@ export async function enrichCatalog(catalog, client, limit = Infinity) {
   }
   const counts = items.reduce((result, item) => ({ ...result, [item.status]: (result[item.status] || 0) + 1 }), {});
   return { ...catalog, enrichedAt: new Date().toISOString(), provider: 'MusicBrainz', phase: 'metadata', counts, items };
+}
+
+const WINDOWS_RESERVED_NAME = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i;
+
+export function safePathSegment(value, fallback = 'Unknown') {
+  let segment = String(value || '').normalize('NFC').replace(/[<>:"/\\|?*\u0000-\u001f]/g, ' ')
+    .replace(/\s+/g, ' ').replace(/[. ]+$/g, '').trim();
+  if (!segment) segment = fallback;
+  if (WINDOWS_RESERVED_NAME.test(segment)) segment = '_' + segment;
+  return segment.slice(0, 96).replace(/[. ]+$/g, '') || fallback;
+}
+
+function isWithin(root, candidate) {
+  const relative = path.relative(root, candidate);
+  return relative !== '' && !relative.startsWith('..' + path.sep) && relative !== '..' && !path.isAbsolute(relative);
+}
+
+export function stagedRelativePath(item) {
+  const artist = safePathSegment(item.artist, 'Unknown Artist');
+  const title = safePathSegment(item.title, 'Unknown Title');
+  const extension = String(item.extension || '').toLowerCase();
+  if (!MEDIA_EXTENSIONS.has('.' + extension)) throw new Error(`Unsupported staged extension for ${item.id}.`);
+  const suffix = String(item.id || '').slice(0, 8).toLowerCase();
+  if (!/^[a-f0-9]{8}$/.test(suffix)) throw new Error('Each staged item requires a stable SHA-256 file ID.');
+  return path.join(artist, `${artist} - ${title} [${suffix}].${extension}`);
+}
+
+export async function stageCatalog(catalog, destination) {
+  const source = await realpath(path.resolve(catalog.source));
+  const target = path.resolve(destination);
+  if (target === source || isWithin(source, target)) throw new Error('Destination must be outside the source media library.');
+  const selected = catalog.items.filter(item => item.status === 'enriched');
+  const planned = [], targetKeys = new Set();
+  for (const item of selected) {
+    const sourceFile = await realpath(path.resolve(source, item.relativePath));
+    if (!isWithin(source, sourceFile)) throw new Error(`Catalog path escapes the source library: ${item.relativePath}`);
+    const info = await stat(sourceFile);
+    if (!info.isFile()) throw new Error(`Catalog source is not a file: ${item.relativePath}`);
+    const relativePath = stagedRelativePath(item), targetKey = relativePath.toLocaleLowerCase();
+    if (targetKeys.has(targetKey)) throw new Error(`Staged filename collision: ${relativePath}`);
+    targetKeys.add(targetKey); planned.push({ item, sourceFile, relativePath });
+  }
+  await mkdir(path.dirname(target), { recursive: true });
+  await mkdir(target);
+  for (const entry of planned) {
+    const targetFile = path.join(target, entry.relativePath);
+    await mkdir(path.dirname(targetFile), { recursive: true });
+    await copyFile(entry.sourceFile, targetFile, constants.COPYFILE_EXCL);
+  }
+  const manifest = { schemaVersion: 1, generatedAt: new Date().toISOString(), files: planned.length,
+    items: planned.map(({ item, relativePath }) => ({ id: item.id, relativePath, extension: item.extension,
+      title: item.title, artist: item.artist, album: item.album || '', track: item.track ?? null,
+      year: item.year ?? null, durationMs: item.durationMs ?? null,
+      musicBrainzRecordingId: item.musicBrainzRecordingId, aliases: item.aliases || [] })) };
+  await writeJson(path.join(target, 'catalog.json'), manifest);
+  return manifest;
 }
 
 export async function writeJson(filename, value) {

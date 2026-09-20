@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { applyMatchDecision, applyRecordingMetadata, decideCandidate, enrichCatalog, inferLocalMetadata, markEnrichmentEligibility, matchCatalog, musicBrainzQuery, MusicBrainzClient, prepareLookupMetadata, probeDurationMs, rankMusicBrainzCandidates, scanLibrary } from '../lib.mjs';
+import { applyMatchDecision, applyRecordingMetadata, decideCandidate, enrichCatalog, inferLocalMetadata, markEnrichmentEligibility, matchCatalog, musicBrainzQuery, MusicBrainzClient, prepareLookupMetadata, probeDurationMs, rankMusicBrainzCandidates, safePathSegment, scanLibrary, stageCatalog, stagedRelativePath } from '../lib.mjs';
 
 test('local inference produces uniform metadata without media-specific rules', () => {
   assert.deepEqual(inferLocalMetadata('Example Artist - Example Track Alpha_20260917_114941_token/source.mp4'),
@@ -72,6 +72,13 @@ test('matching stores only identity evidence before metadata lookup', () => {
   assert.equal(enriched.status, 'enriched'); assert.equal(enriched.album, 'Example Album'); assert.equal(enriched.year, 2020);
 });
 
+test('metadata lookup preserves a locally probed duration when the provider omits it', () => {
+  const item = { ...local, durationMs: 198000, aliases: [], provenance: { durationMs: 'local-probe' } };
+  const recording = { ...recordings[0], length: null };
+  const enriched = applyRecordingMetadata(item, recording);
+  assert.equal(enriched.durationMs, 198000); assert.equal(enriched.provenance.durationMs, 'local-probe');
+});
+
 test('duplicate recording IDs for the same title and artist do not create false ambiguity', () => {
   const ranked = rankMusicBrainzCandidates(local, recordings), decision = decideCandidate(local, ranked);
   assert.equal(decision.status, 'accepted');
@@ -127,4 +134,37 @@ test('match and metadata phases use separate requests and caches', async () => {
   assert.doesNotMatch(searchCache, /"length"|"releases"/);
   const first = await enrichCatalog(matches, client), second = await enrichCatalog(matches, client);
   assert.equal(first.items[0].status, 'enriched'); assert.equal(second.items[0].status, 'enriched'); assert.equal(requests, 2);
+});
+
+test('staging copies only enriched songs with portable uniform names and a manifest', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'metadata-stage-source-'));
+  const destination = await mkdtemp(path.join(os.tmpdir(), 'metadata-stage-parent-')).then(parent => path.join(parent, 'demo'));
+  await writeFile(path.join(root, 'first.mp3'), 'first-source'); await writeFile(path.join(root, 'second.mp4'), 'second-source');
+  const enriched = { id: '0123456789abcdef'.repeat(4), relativePath: 'first.mp3', extension: 'mp3', status: 'enriched',
+    title: 'Example: Track?', artist: 'Example/Artist', album: 'Example Album', track: 1, year: 2020,
+    durationMs: 123000, musicBrainzRecordingId: '00000000-0000-4000-8000-000000000001', aliases: ['Working Title'] };
+  const manifest = await stageCatalog({ source: root, items: [enriched,
+    { ...enriched, id: 'fedcba9876543210'.repeat(4), relativePath: 'second.mp4', extension: 'mp4', status: 'review' }] }, destination);
+  assert.equal(manifest.files, 1); assert.equal(manifest.items.length, 1);
+  assert.equal(manifest.items[0].relativePath, path.join('Example Artist', 'Example Artist - Example Track [01234567].mp3'));
+  assert.equal(await readFile(path.join(destination, manifest.items[0].relativePath), 'utf8'), 'first-source');
+  assert.equal(await readFile(path.join(root, 'first.mp3'), 'utf8'), 'first-source');
+  assert.equal(JSON.parse(await readFile(path.join(destination, 'catalog.json'), 'utf8')).items[0].title, 'Example: Track?');
+});
+
+test('staging rejects paths outside the source and existing destinations', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'metadata-stage-guard-'));
+  const parent = await mkdtemp(path.join(os.tmpdir(), 'metadata-stage-target-'));
+  const id = 'abcdef0123456789'.repeat(4), item = { id, relativePath: '..\\outside.mp3', extension: 'mp3',
+    status: 'enriched', title: 'Example', artist: 'Artist', musicBrainzRecordingId: '00000000-0000-4000-8000-000000000001' };
+  await assert.rejects(stageCatalog({ source: root, items: [item] }, path.join(parent, 'escape')), /source library|ENOENT/);
+  await mkdir(path.join(parent, 'exists'));
+  await assert.rejects(stageCatalog({ source: root, items: [] }, path.join(parent, 'exists')), /EEXIST/);
+});
+
+test('staged names handle reserved and duplicate-looking metadata generically', () => {
+  assert.equal(safePathSegment('CON'), '_CON');
+  const base = { extension: 'mp3', title: 'Example', artist: 'Artist' };
+  assert.notEqual(stagedRelativePath({ ...base, id: '11111111' + '0'.repeat(56) }),
+    stagedRelativePath({ ...base, id: '22222222' + '0'.repeat(56) }));
 });
