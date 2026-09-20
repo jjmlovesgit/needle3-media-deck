@@ -4,8 +4,8 @@ const enums={
  set_panel:{section:['voice','sidebar'],action:['open','close','show','hide','toggle']},
  play_media:{media_type:['any','mp3','mp4']}
 };
-const keys={play_media:['title','artist','album','media_type'],control_playback:['action'],rewind_10_seconds:[],skip_forward_10_seconds:[],show_mp3_files:[],show_original_videos:[],show_karaoke_files_or_videos:[],show_all_media_files:[],show_graphic_equalizer_panel:[],close_graphic_equalizer_panel:[],show_library_panel:[],hide_media_library_panel:[],close_performance_monitor_panel:[],search_library:['query'],refresh_library:[],set_volume:['volume'],load_eq_preset:['preset'],set_panel:['section','action']};
-const required={play_media:['title','media_type'],control_playback:['action'],rewind_10_seconds:[],skip_forward_10_seconds:[],show_mp3_files:[],show_original_videos:[],show_karaoke_files_or_videos:[],show_all_media_files:[],show_graphic_equalizer_panel:[],close_graphic_equalizer_panel:[],show_library_panel:[],hide_media_library_panel:[],close_performance_monitor_panel:[],search_library:['query'],refresh_library:[],set_volume:['volume'],load_eq_preset:['preset'],set_panel:['section','action']};
+const keys={play_media:['title','artist','album','media_type'],control_playback:['action'],rewind_10_seconds:[],skip_forward_10_seconds:[],show_mp3_files:[],show_original_videos:[],show_karaoke_files_or_videos:[],show_all_media_files:[],show_graphic_equalizer_panel:[],close_graphic_equalizer_panel:[],show_library_panel:[],hide_media_library_panel:[],close_performance_monitor_panel:[],search_library:['query'],refresh_library:[],set_volume:['volume'],mute_audio:[],unmute_audio:[],increase_volume:[],decrease_volume:[],load_eq_preset:['preset'],set_panel:['section','action']};
+const required={play_media:['title','media_type'],control_playback:['action'],rewind_10_seconds:[],skip_forward_10_seconds:[],show_mp3_files:[],show_original_videos:[],show_karaoke_files_or_videos:[],show_all_media_files:[],show_graphic_equalizer_panel:[],close_graphic_equalizer_panel:[],show_library_panel:[],hide_media_library_panel:[],close_performance_monitor_panel:[],search_library:['query'],refresh_library:[],set_volume:['volume'],mute_audio:[],unmute_audio:[],increase_volume:[],decrease_volume:[],load_eq_preset:['preset'],set_panel:['section','action']};
 const presets=['Flat','Rock','Pop','Jazz','Classical','Vocal','Bass Boost','Dance','Acoustic'];
 const phrases={
  play:['play','resume','continue'],pause:['pause'],stop:['stop'],previous:['previous','back track'],next:['next'],
@@ -13,6 +13,7 @@ const phrases={
  all:['all'],albums:['album','albums'],mp3:['mp3','audio'],original_mp4:['original','mp4','video','videos'],karaoke_mp4:['karaoke']
 };
 const panelActionPhrases={open:['open','show','display','expand'],show:['show','display','open'],close:['close','hide','collapse'],hide:['hide','close'],toggle:['toggle']};
+const volumeToolPhrases={mute_audio:['mute','silence','sound off'],unmute_audio:['unmute','restore sound','sound on'],increase_volume:['louder','increase volume','turn up volume','turn the volume up','volume up'],decrease_volume:['quieter','decrease volume','lower volume','lower the volume','turn down volume','turn the volume down','volume down']};
 const mentions=(text,values)=>values.some(value=>(' '+text+' ').includes(' '+value+' '));
 /** Validate every call and its grounding before any call is executed.
  * @param {unknown} calls @param {string} transcript
@@ -61,6 +62,7 @@ export function validateCalls(calls,transcript){
   if(call.name==='close_performance_monitor_panel'&&(!mentions(text,['hide','close'])||!mentions(text,['performance monitor','monitor'])))throw new Error('Closing the performance monitor was not grounded in the typed command.');
   if(call.name==='search_library'&&!mentions(text,['search','find','look for']))throw new Error('Library search was not grounded in the typed command.');
   if(call.name==='refresh_library'&&!mentions(text,['refresh','rescan','reload']))throw new Error('Library refresh was not grounded in the typed command.');
+  if(volumeToolPhrases[call.name]&&!mentions(text,volumeToolPhrases[call.name]))throw new Error('Volume adjustment was not grounded in the typed command.');
   if(call.name==='set_panel'&&(!mentions(text,phrases[args.section]||[])||!mentions(text,panelActionPhrases[args.action]||[])))throw new Error('Panel change was not grounded in the typed command.');
   return {name:call.name,arguments:{...args}};
  });
@@ -90,6 +92,7 @@ export async function executeCalls(calls,api,{allowAmbiguousMedia=false}={}){
   else if(name==='rewind_10_seconds'){await api.control('rewind_10');results.push('Rewind 10 seconds');}
   else if(name==='skip_forward_10_seconds'){await api.control('skip_10');results.push('Forward 10 seconds');}
   else if(name==='set_volume'){api.setVolume(args.volume/100);results.push('Volume '+args.volume+'%');}
+  else if(volumeToolPhrases[name]){const action={mute_audio:'mute',unmute_audio:'unmute',increase_volume:'increase',decrease_volume:'decrease'}[name];api.adjustVolume(action);results.push('Volume '+action);}
   else if(name==='load_eq_preset'){api.setPreset(args.preset);results.push(args.preset+' EQ');}
   else if(['show_mp3_files','show_original_videos','show_karaoke_files_or_videos','show_all_media_files'].includes(name)){
    const media_type={show_mp3_files:'mp3',show_original_videos:'original_mp4',show_karaoke_files_or_videos:'karaoke_mp4',show_all_media_files:'all'}[name];

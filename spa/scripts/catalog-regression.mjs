@@ -99,7 +99,7 @@ try {
         media.pause();
       } catch (error) { failures.push({ id: item.id, kind: item.kind, stage: 'play', error: error.message }); }
     }
-    const needleRoutes = [], expectedTool = 'play_media';
+    const needleRoutes = [], volumeRoutes = [], expectedTool = 'play_media';
     const spokenFormats = { mp3: 'MP3', mp4: 'MP4' };
     const readyStarted = performance.now();
     while (!document.querySelector('#commandState')?.textContent.includes('WASM READY') && performance.now() - readyStarted < 90000) await new Promise(resolve => setTimeout(resolve, 100));
@@ -131,12 +131,38 @@ try {
         needleRoutes.push({ kind, expectedTool, expectedFormat, selectedTool: tool, selectedFormat, selectedTitle, selectedArtist, selectedAlbum, selectedKind: selected?.kind || null, pass });
         if (!pass) failures.push({ id: sample.id, kind, stage: 'needle', expectedTool, expectedFormat, selectedTool: tool, selectedFormat, selectedTitle, selectedArtist, selectedAlbum, selectedKind: selected?.kind || null, result });
       }
+      const volumeCases = [
+        { text: 'Lower the volume', action: 'decrease', tool: 'decrease_volume' },
+        { text: 'Turn the volume up', action: 'increase', tool: 'increase_volume' },
+        { text: 'Mute playback', action: 'mute', tool: 'mute_audio' },
+        { text: 'Unmute playback', action: 'unmute', tool: 'unmute_audio' }
+      ];
+      for (const volumeCase of volumeCases) {
+        const slider = document.querySelector('#volume');
+        if (volumeCase.action === 'unmute') {
+          if (!media.muted) document.querySelector('#mute').click();
+        } else {
+          slider.value = '0.5';slider.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        const before = media.volume, input = document.querySelector('#commandInput'), run = document.querySelector('#commandRun');
+        input.value = volumeCase.text;input.dispatchEvent(new Event('input', { bubbles: true }));run.click();
+        const routeStarted = performance.now();
+        while (run.disabled && performance.now() - routeStarted < 30000) await new Promise(resolve => setTimeout(resolve, 50));
+        const rawCalls = document.querySelector('#validatedCalls')?.textContent || '';
+        const selectedTool = /"name"\s*:\s*"([^"]+)"/.exec(rawCalls)?.[1] || '';
+        const effect = volumeCase.action === 'mute' ? media.muted : volumeCase.action === 'unmute' ? !media.muted
+          : volumeCase.action === 'increase' ? media.volume > before : media.volume < before;
+        const result = document.querySelector('#commandResult')?.textContent || '';
+        const pass = selectedTool === volumeCase.tool && effect && result === 'Volume ' + volumeCase.action;
+        volumeRoutes.push({ text: volumeCase.text, expectedTool: volumeCase.tool, selectedTool, effect, pass });
+        if (!pass) failures.push({ kind: 'volume', stage: 'needle', text: volumeCase.text, expectedTool: volumeCase.tool, selectedTool, effect, result });
+      }
     }
     media.pause(); media.removeAttribute('src'); media.load();
     return { generatedAt: new Date().toISOString(), files: library.items.length, counts,
       matched: library.items.length - failures.filter(value => value.stage === 'match').length,
       played: library.items.length - failures.filter(value => value.stage === 'play').length,
-      needleRoutes, failures };
+      needleRoutes, volumeRoutes, failures };
   }.toString()})(${JSON.stringify(appUrl)})`;
   const evaluated = await command('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
   if (evaluated.exceptionDetails) throw new Error(evaluated.exceptionDetails.text);

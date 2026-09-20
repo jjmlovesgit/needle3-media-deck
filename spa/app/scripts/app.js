@@ -188,6 +188,13 @@ const commandAPI={
  },
  setPreset,
  setVolume:value=>{muted=false;media.muted=false;save('muted',false);player.setVolume(value);},
+ adjustVolume:action=>{
+  if(action==='mute'||action==='unmute'){
+   muted=action==='mute';media.muted=muted;save('muted',muted);renderVolume();return;
+  }
+  muted=false;media.muted=false;save('muted',false);
+  player.setVolume(player.state.volume+(action==='increase'?.1:-.1));renderVolume();
+ },
  manageLibrary:async args=>{
   $('libraryPanel').hidden=false;$('libraryPanel').open=true;
   if(args.action==='refresh')await refreshLibrary(true);

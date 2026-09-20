@@ -139,8 +139,28 @@
     }
   },
   {
+    "name": "mute_audio",
+    "description": "Mute or silence playback. Use only for an explicit mute, silence, or sound-off request.",
+    "parameters": { "type": "object", "properties": {}, "additionalProperties": false }
+  },
+  {
+    "name": "unmute_audio",
+    "description": "Unmute playback or turn sound back on. Use only for an explicit unmute, restore-sound, or sound-on request.",
+    "parameters": { "type": "object", "properties": {}, "additionalProperties": false }
+  },
+  {
+    "name": "increase_volume",
+    "description": "Increase playback volume by one step. Use for louder or volume-up requests with no numeric percentage.",
+    "parameters": { "type": "object", "properties": {}, "additionalProperties": false }
+  },
+  {
+    "name": "decrease_volume",
+    "description": "Decrease playback volume by one step. Use for quieter, lower-volume, or volume-down requests with no numeric percentage.",
+    "parameters": { "type": "object", "properties": {}, "additionalProperties": false }
+  },
+  {
     "name": "set_volume",
-    "description": "Set playback volume from 0 to 100 percent. Use only for an explicit volume request. Never add an EQ preset.",
+    "description": "Set playback volume from 0 to 100 percent only when the user explicitly states the numeric value. Never use this tool for mute, unmute, louder, quieter, volume up, or volume down. Never invent a percentage or add an EQ preset.",
     "parameters": {
       "type": "object",
       "properties": {

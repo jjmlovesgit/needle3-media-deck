@@ -40,6 +40,17 @@ test('preserves the beginning of an explicitly requested title',()=>{
  assert.deepEqual(validateCalls([call('play_media',{title,artist,media_type:'any'})],transcript),[call('play_media',{title,artist,media_type:'any'})]);
  assert.throws(()=>validateCalls([call('play_media',{title:"Horizon Example Artist's version",media_type:'any'})],transcript),/omitted the beginning/);
 });
+test('validates only grounded nonnumeric volume actions',()=>{
+ for(const [text,name] of [['Mute playback','mute_audio'],['Unmute playback','unmute_audio'],['Turn the volume up','increase_volume'],['Lower the volume','decrease_volume']])
+  assert.deepEqual(validateCalls([call(name,{})],text),[call(name,{})]);
+ assert.throws(()=>validateCalls([call('decrease_volume',{})],'Mute playback'),/not grounded/);
+ assert.throws(()=>validateCalls([call('set_volume',{volume:5})],'Lower volume'),/use digits/);
+});
+test('executes the Needle-selected nonnumeric volume action',async()=>{
+ let action='';
+ assert.deepEqual(await executeCalls([call('decrease_volume',{})],{adjustVolume:value=>{action=value}}),['Volume decrease']);
+ assert.equal(action,'decrease');
+});
 test('requires Needle to preserve an explicitly requested MP3 or MP4 format',()=>{
  const title='Example Artist Example Track';
  assert.deepEqual(validateCalls([call('play_media',{title,media_type:'mp4'})],'Play Example Artist Example Track MP4'),
