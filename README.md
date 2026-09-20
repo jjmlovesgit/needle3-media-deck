@@ -234,17 +234,8 @@ to cloud speech recognition. The first use may install a local command-quality
 language pack. Cactus Needle model files are also downloaded and cached on the
 first command; subsequent routing is local. Needle telemetry is disabled.
 
-Playback pauses temporarily while push-to-talk is recording to reduce music
-self-capture, then resumes unless the voice command changes playback.
-
-At player startup, Media Deck preflights and caches the installed local speech
-pack and prepares a standby recognizer. Microphone acquisition and final
-readiness run concurrently when capture begins. LiveKit wake-word detection
-wakes the browser through an event-driven local wait endpoint rather than a
-fixed polling interval. Release retains a 450 ms final-word tail followed by a
-200 ms transcript-finalization window. A true PCM pre-roll is intentionally not
-claimed: LiveKit releases microphone ownership before Chrome acquires the
-command stream.
+Playback temporarily ducks to 5% while voice capture is active to reduce music
+self-capture, then restores the prior level unless the command sets a new volume.
 
 ## Updating
 
@@ -371,6 +362,24 @@ The current suite contains 51 tests.
   rendering, equalization, visualization, and playback run locally.
 - The development Suno workflow must only be used for audio the user owns or is
   authorized to save. It does not bypass protected media.
+
+## Acknowledgments and citation
+
+Media Deck uses [Cactus Needle 3](https://github.com/cactus-compute/needle) for
+local natural-language tool routing. If you reference this integration in
+academic or technical work, cite the Needle project as follows:
+
+```bibtex
+@misc{needle3_2026,
+  title        = {Needle: Automation Foundation Model for Tiny Devices},
+  author       = {Ndubuaku, Henry and Mosoyan, Karen and Mroz, Jakub and
+                  Cylich, Noah and Kumar, Satyajit and Sandhu, Parkirat and
+                  Shemet, Roman and Lee, Justin H.},
+  year         = {2026},
+  organization = {Cactus Compute, Inc.},
+  howpublished = {\url{https://github.com/cactus-compute/needle}}
+}
+```
 
 For implementation details, operational behavior, and deeper recovery steps,
 see [Notes.md](Notes.md).
