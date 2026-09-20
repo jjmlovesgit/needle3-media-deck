@@ -82,6 +82,10 @@ test('lookup preparation removes generic promotional suffixes and derives collec
     { title: 'Example Track', artist: 'Example Artist', album: '3 Hours of Example Artist for Evening Listening', track: 1 });
   assert.equal(musicBrainzQuery({ local: { title: 'Example Track Official Video', artist: 'Example Artist' } }),
     'recording:"Example Track" AND artist:"Example Artist"');
+  assert.equal(prepareLookupMetadata({ local: { title: 'Music Video - Example Track 1999 HQ', artist: '', album: '' } }).title, 'Example Track');
+  assert.equal(prepareLookupMetadata({ local: { title: 'Example Track Official Music Video HD - Karaoke', artist: '', album: '' } }).title, 'Example Track');
+  assert.equal(prepareLookupMetadata({ local: { title: 'Example Track - Live at Example Hall Official Pro Shot', artist: '', album: '' } }).title, 'Example Track');
+  assert.equal(prepareLookupMetadata({ local: { title: 'Example Track Official Lyric Video', artist: '', album: '' } }).title, 'Example Track');
 });
 
 test('repeated words do not score as an exact title match', () => {

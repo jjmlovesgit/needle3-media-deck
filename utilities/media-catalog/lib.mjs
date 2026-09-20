@@ -146,7 +146,16 @@ export function applyRecordingMetadata(item, recording) {
 
 export function prepareLookupMetadata(item) {
   const local = item.local || item;
-  const title = String(local.title || '').replace(/\s+(?:(?:official\s+)?(?:music\s+)?video|official\s+audio|lyrics?(?:\s+video)?|visuali[sz]er)\s*$/i, '').trim() || local.title;
+  const originalTitle = String(local.title || '');
+  const title = originalTitle
+    .replace(/^\s*(?:(?:official|unofficial)\s+)?(?:music\s+)?video\s*[-:]\s*/i, '')
+    .replace(/\s*[-–—]\s*live\s+at\b.*$/i, '')
+    .replace(/\s+(?:official|unofficial)\s+(?:(?:music\s+)?video|audio|clip)(?:\s+by\s+.+)?(?:\s*[-–—]?\s*(?:hd|hq|4k|remaster(?:ed)?|pro\s+shot))*.*$/i, '')
+    .replace(/\s+(?:official|unofficial)\s*$/i, '')
+    .replace(/\s+(?:(?:official|unofficial)\s+)?(?:lyric\s+)?video\s*$/i, '')
+    .replace(/\s*[-–—]\s*karaoke\s*$/i, '')
+    .replace(/\s+(?:19|20)\d{2}\s+(?:hd|hq|4k|remaster(?:ed)?)\s*$/i, '')
+    .replace(/\s+(?:hd|hq|4k|remaster(?:ed)?)\s*$/i, '').trim() || originalTitle;
   let artist = String(local.artist || '').trim();
   if (!artist && local.album) {
     const collectionArtist = /^\s*\d+(?:\.\d+)?\s+hours?\s+of\s+(.+?)\s+(?:for|to|at|during)\b/i.exec(local.album);
