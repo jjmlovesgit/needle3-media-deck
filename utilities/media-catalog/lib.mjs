@@ -101,20 +101,27 @@ export function decideCandidate(local, ranked) {
   return { status: accept ? 'accepted' : 'review', confidence: Number(best.evidenceScore.toFixed(3)), best, margin };
 }
 
-export function applyDecision(item, decision, ranked) {
+export function applyMatchDecision(item, decision, ranked) {
   const candidates = ranked.slice(0, 5).map(({ recording, artist, release, evidenceScore }) => ({
-    musicBrainzRecordingId: recording.id, title: recording.title, artist, album: release?.title || '',
-    year: release?.date ? Number(String(release.date).slice(0, 4)) || null : null,
-    durationMs: Number(recording.length) || null, score: Number(evidenceScore.toFixed(3)) }));
+    musicBrainzRecordingId: recording.id, title: recording.title, artist,
+    score: Number(evidenceScore.toFixed(3)) }));
   if (decision.status !== 'accepted') return { ...item, status: decision.status, confidence: decision.confidence, candidates };
-  const selected = candidates[0];
+  return { ...item, status: 'matched', confidence: decision.confidence,
+    matchedRecordingId: candidates[0].musicBrainzRecordingId, candidates };
+}
+
+export function applyRecordingMetadata(item, recording) {
+  const artist = artistCredit(recording), release = bestRelease(recording);
+  const selected = { title: recording.title || item.title, artist, album: release?.title || '',
+    year: release?.date ? Number(String(release.date).slice(0, 4)) || null : null,
+    durationMs: Number(recording.length) || null };
   const aliases = [...new Set([item.title, ...(item.aliases || [])].filter(value => value && normalize(value) !== normalize(selected.title)))];
   return { ...item, title: selected.title, artist: selected.artist || item.artist, album: selected.album || item.album,
-    year: selected.year, durationMs: selected.durationMs, musicBrainzRecordingId: selected.musicBrainzRecordingId,
-    aliases, status: 'accepted', confidence: decision.confidence, provenance: { title: 'musicbrainz',
+    year: selected.year, durationMs: selected.durationMs, musicBrainzRecordingId: recording.id,
+    aliases, status: 'enriched', provenance: { title: 'musicbrainz',
       artist: selected.artist ? 'musicbrainz' : item.provenance.artist, album: selected.album ? 'musicbrainz' : item.provenance.album,
       track: item.provenance.track, year: selected.year ? 'musicbrainz' : null,
-      durationMs: selected.durationMs ? 'musicbrainz' : null }, candidates };
+      durationMs: selected.durationMs ? 'musicbrainz' : null } };
 }
 
 export function prepareLookupMetadata(item) {
@@ -141,14 +148,24 @@ export class MusicBrainzClient {
   }
   async search(item) {
     const query = musicBrainzQuery(item), key = createHash('sha256').update(query).digest('hex'), cacheFile = path.join(this.cacheDirectory, key + '.json');
-    try { return JSON.parse(await readFile(cacheFile, 'utf8')); } catch (error) {
-      if (error.code !== 'ENOENT') throw error;
-      if (this.offline) return { recordings: [], offlineCacheMiss: true };
-    }
-    await mkdir(this.cacheDirectory, { recursive: true });
-    const wait = Math.max(0, this.intervalMs - (Date.now() - this.lastRequestAt)); if (wait) await delay(wait);
     const url = new URL('https://musicbrainz.org/ws/2/recording/');
     url.searchParams.set('query', query); url.searchParams.set('fmt', 'json'); url.searchParams.set('limit', '10');
+    return this.request(cacheFile, url, { recordings: [], offlineCacheMiss: true });
+  }
+  async lookup(recordingId) {
+    if (!/^[a-f0-9-]{36}$/i.test(recordingId)) throw new Error('Invalid MusicBrainz recording ID.');
+    const cacheFile = path.join(this.cacheDirectory, 'lookup', recordingId.toLowerCase() + '.json');
+    const url = new URL(`https://musicbrainz.org/ws/2/recording/${recordingId}`);
+    url.searchParams.set('inc', 'artist-credits+releases'); url.searchParams.set('fmt', 'json');
+    return this.request(cacheFile, url, null);
+  }
+  async request(cacheFile, url, offlineFallback) {
+    try { return JSON.parse(await readFile(cacheFile, 'utf8')); } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      if (this.offline) return offlineFallback;
+    }
+    await mkdir(path.dirname(cacheFile), { recursive: true });
+    const wait = Math.max(0, this.intervalMs - (Date.now() - this.lastRequestAt)); if (wait) await delay(wait);
     let response;
     for (let attempt = 0; attempt < 3; attempt++) {
       this.lastRequestAt = Date.now();
@@ -163,7 +180,7 @@ export class MusicBrainzClient {
   }
 }
 
-export async function enrichCatalog(catalog, client, limit = Infinity) {
+export async function matchCatalog(catalog, client, limit = Infinity) {
   const items = []; let queried = 0;
   for (const item of markEnrichmentEligibility(catalog.items)) {
     if (!item.eligibleForEnrichment) { items.push(item); continue; }
@@ -171,10 +188,22 @@ export async function enrichCatalog(catalog, client, limit = Infinity) {
     const data = await client.search(item); queried++;
     const lookup = prepareLookupMetadata(item);
     const ranked = rankMusicBrainzCandidates(lookup, data.recordings || []), decision = decideCandidate(lookup, ranked);
-    items.push(applyDecision(item, decision, ranked));
+    items.push(applyMatchDecision(item, decision, ranked));
   }
   const counts = items.reduce((result, item) => ({ ...result, [item.status]: (result[item.status] || 0) + 1 }), {});
-  return { ...catalog, enrichedAt: new Date().toISOString(), provider: 'MusicBrainz', counts, items };
+  return { ...catalog, matchedAt: new Date().toISOString(), provider: 'MusicBrainz', phase: 'match', counts, items };
+}
+
+export async function enrichCatalog(catalog, client, limit = Infinity) {
+  const items = []; let queried = 0;
+  for (const item of catalog.items) {
+    if (item.status !== 'matched' || !item.matchedRecordingId || queried >= limit) { items.push(item); continue; }
+    const recording = await client.lookup(item.matchedRecordingId); queried++;
+    if (!recording) { items.push({ ...item, status: 'metadata-unavailable' }); continue; }
+    items.push(applyRecordingMetadata(item, recording));
+  }
+  const counts = items.reduce((result, item) => ({ ...result, [item.status]: (result[item.status] || 0) + 1 }), {});
+  return { ...catalog, enrichedAt: new Date().toISOString(), provider: 'MusicBrainz', phase: 'metadata', counts, items };
 }
 
 export async function writeJson(filename, value) {

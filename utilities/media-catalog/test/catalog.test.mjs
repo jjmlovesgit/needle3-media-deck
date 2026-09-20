@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { applyDecision, decideCandidate, enrichCatalog, inferLocalMetadata, markEnrichmentEligibility, musicBrainzQuery, MusicBrainzClient, prepareLookupMetadata, rankMusicBrainzCandidates, scanLibrary } from '../lib.mjs';
+import { applyMatchDecision, applyRecordingMetadata, decideCandidate, enrichCatalog, inferLocalMetadata, markEnrichmentEligibility, matchCatalog, musicBrainzQuery, MusicBrainzClient, prepareLookupMetadata, rankMusicBrainzCandidates, scanLibrary } from '../lib.mjs';
 
 test('local inference produces uniform metadata without media-specific rules', () => {
   assert.deepEqual(inferLocalMetadata('Example Artist - Example Track Alpha_20260917_114941_token/source.mp4'),
@@ -36,17 +36,22 @@ test('album media is excluded while its individual songs remain eligible', () =>
 
 const local = { title: 'Example Track Alpha', artist: 'Example Artist', album: '', track: null };
 const recordings = [
-  { id: 'recording-a', title: 'Example Track Alpha', score: 100, length: 201000,
+  { id: '00000000-0000-4000-8000-000000000001', title: 'Example Track Alpha', score: 100, length: 201000,
     'artist-credit': [{ name: 'Example Artist' }], releases: [{ title: 'Example Album', date: '2020-01-02' }] },
-  { id: 'recording-b', title: 'Example Track Alpha Remix', score: 86,
+  { id: '00000000-0000-4000-8000-000000000002', title: 'Example Track Alpha Remix', score: 86,
     'artist-credit': [{ name: 'Different Artist' }], releases: [] }
 ];
 
-test('candidate acceptance requires title, artist, provider score, and separation', () => {
+test('matching stores only identity evidence before metadata lookup', () => {
   const ranked = rankMusicBrainzCandidates(local, recordings), decision = decideCandidate(local, ranked);
   assert.equal(decision.status, 'accepted');
-  const item = applyDecision({ ...local, aliases: [], provenance: {} }, decision, ranked);
-  assert.equal(item.musicBrainzRecordingId, 'recording-a'); assert.equal(item.album, 'Example Album'); assert.equal(item.year, 2020);
+  const item = applyMatchDecision({ ...local, aliases: [], provenance: {} }, decision, ranked);
+  assert.equal(item.status, 'matched');
+  assert.equal(item.matchedRecordingId, '00000000-0000-4000-8000-000000000001');
+  assert.equal(item.musicBrainzRecordingId, undefined); assert.equal(item.year, undefined);
+  assert.deepEqual(Object.keys(item.candidates[0]).sort(), ['artist','musicBrainzRecordingId','score','title']);
+  const enriched = applyRecordingMetadata(item, recordings[0]);
+  assert.equal(enriched.status, 'enriched'); assert.equal(enriched.album, 'Example Album'); assert.equal(enriched.year, 2020);
 });
 
 test('title-only evidence stays reviewable and query escaping is bounded', () => {
@@ -70,13 +75,15 @@ test('repeated words do not score as an exact title match', () => {
   assert(ranked[0].titleSimilarity < .6);
 });
 
-test('client caches responses and enrichment stays standalone', async () => {
+test('match and metadata phases use separate requests and caches', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'metadata-cache-')); let requests = 0;
-  const fetchImpl = async (_url, options) => { requests++; assert.match(options.headers['User-Agent'], /^Needle3MediaCatalog\/0\.1/);
-    return { ok: true, status: 200, json: async () => ({ recordings }) }; };
+  const fetchImpl = async (url, options) => { requests++; assert.match(options.headers['User-Agent'], /^Needle3MediaCatalog\/0\.1/);
+    const isLookup=!url.searchParams.has('query');
+    return { ok: true, status: 200, json: async () => isLookup ? recordings[0] : ({ recordings }) }; };
   const client = new MusicBrainzClient({ cacheDirectory: root, contact: 'https://example.invalid/contact', fetchImpl, intervalMs: 0 });
   const item = { id: 'one', ...local, local, aliases: [], provenance: {} };
-  const first = await enrichCatalog({ schemaVersion: 1, items: [item] }, client);
-  const second = await enrichCatalog({ schemaVersion: 1, items: [item] }, client);
-  assert.equal(first.items[0].status, 'accepted'); assert.equal(second.items[0].status, 'accepted'); assert.equal(requests, 1);
+  const matches = await matchCatalog({ schemaVersion: 1, items: [item] }, client);
+  assert.equal(matches.items[0].status, 'matched'); assert.equal(requests, 1);
+  const first = await enrichCatalog(matches, client), second = await enrichCatalog(matches, client);
+  assert.equal(first.items[0].status, 'enriched'); assert.equal(second.items[0].status, 'enriched'); assert.equal(requests, 2);
 });
