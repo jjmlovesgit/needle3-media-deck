@@ -19,7 +19,9 @@ node catalog.mjs match --catalog work/catalog.local.json --limit 10 --allow-netw
 node catalog.mjs enrich --catalog work/catalog.matches.json --allow-network
 ```
 
-`plan` writes `work/enrichment-plan.json` locally so the exact titles and artists that would be transmitted can be reviewed first. Full albums, compilations, and standalone files matching a split-track album are marked `excluded-album` and omitted. Numbered files inside album track folders remain eligible as individual songs.
+`plan` writes `work/enrichment-plan.json` locally so the exact titles and artists that would be transmitted can be reviewed first. Full albums, compilations, and standalone files matching a split-track album are marked `excluded-album`. Media longer than ten minutes is marked `excluded-long-form`. Both statuses are omitted from matching and metadata retrieval. Numbered files inside album track folders remain eligible only when their individual duration is ten minutes or less.
+
+The local `scan` command uses an existing `ffprobe` executable on `PATH` to read duration. It does not install or bundle FFmpeg, and the playback application has no dependency on it. If duration cannot be read, `durationMs` remains `null` for review rather than guessing from file size.
 
 `match` performs recording search and writes `work/catalog.matches.json`. It retains and caches only the candidate recording ID, title, artist, and match score, discarding other fields returned by search. It does not change catalog metadata. `enrich` then performs an ID lookup only for records with `matched` status; `review`, `unmatched`, and `excluded-album` records never trigger metadata lookups. Both network commands require either `--allow-network` or `--offline`.
 

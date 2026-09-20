@@ -27,12 +27,14 @@ try {
     const input = path.resolve(option('catalog', path.join(directory, 'work', 'catalog.local.json')));
     const output = path.resolve(option('output', path.join(directory, 'work', 'enrichment-plan.json')));
     const catalog = JSON.parse(await readFile(input, 'utf8'));
-    const eligible = markEnrichmentEligibility(catalog.items).filter(item => item.eligibleForEnrichment);
+    const classified = markEnrichmentEligibility(catalog.items), eligible = classified.filter(item => item.eligibleForEnrichment);
     const plan = { schemaVersion: 1, provider: 'MusicBrainz', endpoint: 'https://musicbrainz.org/ws/2/recording/',
       notice: 'Each query contains locally inferred title and optional artist metadata.',
-      excludedAlbums: catalog.items.length - eligible.length,
+      excludedAlbums: classified.filter(item => item.status === 'excluded-album').length,
+      excludedOverTenMinutes: classified.filter(item => item.status === 'excluded-long-form').length,
       queries: eligible.map(item => ({ id: item.id, relativePath: item.relativePath, query: musicBrainzQuery(item) })) };
-    await writeJson(output, plan); console.log(JSON.stringify({ output, songQueries: plan.queries.length, excludedAlbums: plan.excludedAlbums }, null, 2));
+    await writeJson(output, plan); console.log(JSON.stringify({ output, songQueries: plan.queries.length,
+      excludedAlbums: plan.excludedAlbums, excludedOverTenMinutes: plan.excludedOverTenMinutes }, null, 2));
   } else if (command === 'match') {
     const input = path.resolve(option('catalog', path.join(directory, 'work', 'catalog.local.json')));
     const output = path.resolve(option('output', path.join(directory, 'work', 'catalog.matches.json')));

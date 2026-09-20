@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { applyMatchDecision, applyRecordingMetadata, decideCandidate, enrichCatalog, inferLocalMetadata, markEnrichmentEligibility, matchCatalog, musicBrainzQuery, MusicBrainzClient, prepareLookupMetadata, rankMusicBrainzCandidates, scanLibrary } from '../lib.mjs';
+import { applyMatchDecision, applyRecordingMetadata, decideCandidate, enrichCatalog, inferLocalMetadata, markEnrichmentEligibility, matchCatalog, musicBrainzQuery, MusicBrainzClient, prepareLookupMetadata, probeDurationMs, rankMusicBrainzCandidates, scanLibrary } from '../lib.mjs';
 
 test('local inference produces uniform metadata without media-specific rules', () => {
   assert.deepEqual(inferLocalMetadata('Example Artist - Example Track Alpha_20260917_114941_token/source.mp4'),
@@ -32,6 +32,22 @@ test('album media is excluded while its individual songs remain eligible', () =>
   assert.equal(items[0].status, 'excluded-album');
   assert.equal(items[1].eligibleForEnrichment, true);
   assert.equal(items[2].eligibleForEnrichment, true);
+});
+
+test('media over ten minutes is excluded before matching', () => {
+  const items = markEnrichmentEligibility([
+    { id: 'short', title: 'Short Song', album: '', track: null, relativePath: 'short.mp3', durationMs: 600000, status: 'local' },
+    { id: 'long', title: 'Long Recording', album: '', track: null, relativePath: 'long.mp3', durationMs: 600001, status: 'local' },
+    { id: 'unknown', title: 'Unknown Duration', album: '', track: null, relativePath: 'unknown.mp3', durationMs: null, status: 'local' }
+  ]);
+  assert.equal(items[0].eligibleForEnrichment, true);
+  assert.equal(items[1].eligibleForEnrichment, false); assert.equal(items[1].status, 'excluded-long-form');
+  assert.equal(items[2].eligibleForEnrichment, true);
+});
+
+test('duration probe converts seconds to milliseconds and tolerates unavailable probes', async () => {
+  assert.equal(await probeDurationMs('example.mp3', async () => ({ stdout: '123.456\n' })), 123456);
+  assert.equal(await probeDurationMs('example.mp3', async () => { throw new Error('missing'); }), null);
 });
 
 const local = { title: 'Example Track Alpha', artist: 'Example Artist', album: '', track: null };

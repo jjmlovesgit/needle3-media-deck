@@ -1,8 +1,12 @@
 import { createHash } from 'node:crypto';
+import { execFile } from 'node:child_process';
 import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { promisify } from 'node:util';
 
 export const MEDIA_EXTENSIONS = new Set(['.mp3', '.mp4']);
+export const MAX_ENRICHMENT_DURATION_MS = 10 * 60 * 1000;
+const execFileAsync = promisify(execFile);
 
 export function normalize(value = '') {
   return String(value).normalize('NFKD').replace(/\p{M}/gu, '').toLocaleLowerCase()
@@ -39,15 +43,25 @@ export async function scanLibrary(source) {
   const root = path.resolve(source), files = await walk(root), items = [];
   for (const absolute of files) {
     const info = await stat(absolute), relativePath = path.relative(root, absolute), local = inferLocalMetadata(relativePath);
+    const durationMs = await probeDurationMs(absolute);
     const id = createHash('sha256').update(relativePath.toLowerCase() + '\0' + info.size).digest('hex');
     items.push({ id, relativePath, extension: path.extname(absolute).slice(1).toLowerCase(), size: info.size,
       modifiedMs: info.mtimeMs, title: local.title, artist: local.artist, album: local.album, track: local.track,
-      year: null, durationMs: null, musicBrainzRecordingId: null, aliases: [], status: 'local',
+      year: null, durationMs, musicBrainzRecordingId: null, aliases: [], status: 'local',
       confidence: local.artist ? 0.65 : 0.45, provenance: { title: 'filename-or-folder',
         artist: local.artist ? 'filename' : null, album: local.album ? 'folder' : null,
         track: local.track ? 'filename' : null }, local });
   }
   return { schemaVersion: 1, source: root, generatedAt: new Date().toISOString(), items: markEnrichmentEligibility(items) };
+}
+
+export async function probeDurationMs(filename, exec = execFileAsync) {
+  try {
+    const { stdout } = await exec('ffprobe', ['-v', 'error', '-show_entries', 'format=duration',
+      '-of', 'default=noprint_wrappers=1:nokey=1', filename], { windowsHide: true, timeout: 20000, maxBuffer: 1024 * 1024 });
+    const seconds = Number(String(stdout).trim());
+    return Number.isFinite(seconds) && seconds > 0 ? Math.round(seconds * 1000) : null;
+  } catch { return null; }
 }
 
 function tokenCoverage(left, right) {
@@ -66,9 +80,15 @@ export function markEnrichmentEligibility(items) {
       const shorter = Math.min(normalize(album).split(' ').length, normalize(item.title).split(' ').length);
       return shorter >= 3 && tokenCoverage(album, item.title) >= .85;
     });
-    const excluded = !individualTrack && (longFormLabel || duplicatesSplitAlbum);
-    return { ...item, enrichmentType: excluded ? 'album' : 'song', eligibleForEnrichment: !excluded,
-      ...(excluded ? { status: 'excluded-album', exclusionReason: longFormLabel ? 'long-form album label' : 'matching split-track album' } : {}) };
+    const excludedAlbum = !individualTrack && (longFormLabel || duplicatesSplitAlbum);
+    const excludedDuration = Number.isFinite(item.durationMs) && item.durationMs > MAX_ENRICHMENT_DURATION_MS;
+    const excluded = excludedAlbum || excludedDuration;
+    const status = excludedAlbum ? 'excluded-album' : excludedDuration ? 'excluded-long-form'
+      : ['excluded-album','excluded-long-form'].includes(item.status) ? 'local' : item.status;
+    const exclusionReason = excludedAlbum ? (longFormLabel ? 'long-form album label' : 'matching split-track album')
+      : excludedDuration ? 'duration over 10 minutes' : undefined;
+    return { ...item, enrichmentType: excludedAlbum ? 'album' : 'song', eligibleForEnrichment: !excluded, status,
+      ...(exclusionReason ? { exclusionReason } : {}) };
   });
 }
 
