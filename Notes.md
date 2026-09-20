@@ -513,6 +513,16 @@ installer; it must never attempt silent installation.
   icon or Ctrl+Space until the icon turns red, speak, and release to transcribe
   and route the command.
 - Release includes a short local decoding tail so the final word is not clipped. Empty results distinguish missing microphone audio, undetected speech, and an undecoded transcript.
+- The player preflights Chrome's local speech-pack availability on startup,
+  caches the selected quality, and prepares a standby recognition object.
+  Microphone acquisition and speech readiness then proceed concurrently.
+- LiveKit detections use a blocking local wait endpoint that wakes immediately
+  when the detection sequence changes. The previous 500 ms browser poll is no
+  longer used.
+- Push-to-talk retains a 450 ms final-word capture tail and a 200 ms
+  transcript-finalization window. This is a trailing decode buffer, not a PCM
+  pre-roll; LiveKit still releases microphone ownership before Chrome acquires
+  the command stream.
 - `processLocally = true` is mandatory; Media Deck does not fall back to server-based speech recognition. The first use can install a local command-quality language pack.
 - Media playback is temporarily paused while the microphone is recording to
   reduce self-capture, then restored unless the command changes playback.

@@ -22,6 +22,7 @@ class WakeWordService:
         self.settings_path = root / "state" / "wakeword_settings.json"
         self.threshold = threshold
         self._lock = threading.Lock()
+        self._sequence_changed = threading.Condition(self._lock)
         self._changed = threading.Event()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -56,14 +57,17 @@ class WakeWordService:
     def stop(self) -> None:
         self._stop.set()
         self._changed.set()
+        with self._sequence_changed:
+            self._sequence_changed.notify_all()
 
     def configure(self, enabled: bool) -> dict:
-        with self._lock:
+        with self._sequence_changed:
             self._enabled = bool(enabled)
             self._hold = False
             self._state = "starting" if self._enabled else "disabled"
             self._error = ""
             self._save_enabled()
+            self._sequence_changed.notify_all()
         self._changed.set()
         return self.status()
 
@@ -107,6 +111,19 @@ class WakeWordService:
                 "local": True,
                 "processor": "CPU / ONNX Runtime",
             }
+
+    def wait_for_detection(self, after_sequence: int, timeout: float = 20.0) -> dict:
+        """Wait until a newer wake-word detection exists or the timeout expires."""
+        after_sequence = max(0, int(after_sequence))
+        timeout = min(30.0, max(0.1, float(timeout)))
+        deadline = time.monotonic() + timeout
+        with self._sequence_changed:
+            while self._sequence <= after_sequence and not self._stop.is_set():
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                self._sequence_changed.wait(remaining)
+        return self.status()
 
     async def _listen_once(self, model):
         from livekit.wakeword import WakeWordListener
@@ -161,11 +178,12 @@ class WakeWordService:
                 if detection is None:
                     continue
                 # _listen_once has exited its context; PyAudio is now released.
-                with self._lock:
+                with self._sequence_changed:
                     self._sequence += 1
                     self._confidence = float(detection.confidence)
                     self._detected_at = time.time()
                     self._state = "triggered"
+                    self._sequence_changed.notify_all()
                 self._changed.clear()
                 while not self._stop.is_set():
                     with self._lock:

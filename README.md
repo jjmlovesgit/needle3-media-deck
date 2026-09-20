@@ -237,6 +237,15 @@ first command; subsequent routing is local. Needle telemetry is disabled.
 Playback pauses temporarily while push-to-talk is recording to reduce music
 self-capture, then resumes unless the voice command changes playback.
 
+At player startup, Media Deck preflights and caches the installed local speech
+pack and prepares a standby recognizer. Microphone acquisition and final
+readiness run concurrently when capture begins. LiveKit wake-word detection
+wakes the browser through an event-driven local wait endpoint rather than a
+fixed polling interval. Release retains a 450 ms final-word tail followed by a
+200 ms transcript-finalization window. A true PCM pre-roll is intentionally not
+claimed: LiveKit releases microphone ownership before Chrome acquires the
+command stream.
+
 ## Updating
 
 Update the source and repair the local environment with:

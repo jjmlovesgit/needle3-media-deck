@@ -1,8 +1,17 @@
-# Media Deck 0.1.0 Preview 1
+# Media Deck 0.1.0 Preview 2
 
 This is an **unsigned Windows preview** for testing Media Deck on a second
 computer. It installs the local Media Deck companion and the public/no-Suno
 Chrome extension for the current Windows user.
+
+## What changed in Preview 2
+
+- Chrome's installed local speech pack is preflighted and cached at player load.
+- A configured speech-recognition object is prepared before the first command.
+- Microphone acquisition and speech readiness run concurrently.
+- LiveKit wake-word detection now uses an event-driven local wait instead of a
+  500 ms polling interval.
+- The 450 ms final-word tail and 200 ms transcript-finalization window remain.
 
 ## Run this first
 
@@ -26,8 +35,8 @@ that has access to `jjmlovesgit/mediadeck` before downloading the assets.
 From the release's **Assets** section, download:
 
 1. `Test-MediaDeckPrerequisites.ps1`
-2. `MediaDeck-Setup-0.1.0.exe`
-3. `MediaDeck-Setup-0.1.0.exe.sha256` (optional checksum file)
+2. `MediaDeck-Setup-0.1.0-preview.2.exe`
+3. `MediaDeck-Setup-0.1.0-preview.2.exe.sha256` (optional checksum file)
 
 Keep the files together in the Windows Downloads folder.
 
@@ -62,19 +71,19 @@ Optional machine-readable output:
 
 ```powershell
 cd $HOME\Downloads
-(Get-FileHash .\MediaDeck-Setup-0.1.0.exe -Algorithm SHA256).Hash
+(Get-FileHash .\MediaDeck-Setup-0.1.0-preview.2.exe -Algorithm SHA256).Hash
 ```
 
 Expected SHA-256:
 
 ```text
-A33B84B8D7859F76D7A99FF6D7D277132C70FC98E221838265CB71E9E88F8EF1
+E995A6530857D9C250DB1714C94D98E7BADCC4855B873F107EE34BDB18467B8E
 ```
 
 ## 3. Install Media Deck
 
 1. Close every Chrome window.
-2. Double-click `MediaDeck-Setup-0.1.0.exe`.
+2. Double-click `MediaDeck-Setup-0.1.0-preview.2.exe`.
 3. Windows SmartScreen may warn because this preview has not been code-signed.
    Choose **More info**, verify the filename, and select **Run anyway**.
 4. Click **Install**.
@@ -171,7 +180,7 @@ Do not post private media, cookies, credentials, or signing keys.
 
 ## Repair or update
 
-Run `MediaDeck-Setup-0.1.0.exe` again and click **Repair**. Then reload Media
+Run `MediaDeck-Setup-0.1.0-preview.2.exe` again and click **Repair**. Then reload Media
 Deck at `chrome://extensions`.
 
 ## Uninstall
@@ -202,5 +211,5 @@ unpacked Media Deck extension from `chrome://extensions` separately.
 - The current public extension excludes Suno, while final public native-host
   payload hardening remains release work.
 
-Report test results against release `v0.1.0-preview.1` and include the date the
+Report test results against release `v0.1.0-preview.2` and include the date the
 assets were downloaded.
