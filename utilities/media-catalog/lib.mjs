@@ -76,8 +76,10 @@ function similarity(left, right) {
   const a = normalize(left), b = normalize(right);
   if (!a || !b) return 0;
   if (a === b) return 1;
-  const x = new Set(a.split(' ')), y = new Set(b.split(' '));
-  return (2 * [...x].filter(token => y.has(token)).length) / (x.size + y.size);
+  const x = a.split(' '), y = b.split(' '), remaining = [...y]; let intersection = 0;
+  for (const token of x) { const index = remaining.indexOf(token); if (index >= 0) { intersection++; remaining.splice(index, 1); } }
+  const tokenDice = (2 * intersection) / (x.length + y.length), lengthRatio = Math.min(a.length, b.length) / Math.max(a.length, b.length);
+  return tokenDice * (.7 + .3 * lengthRatio);
 }
 const artistCredit = recording => (recording['artist-credit'] || []).map(credit => credit.name || credit.artist?.name || '').filter(Boolean).join('');
 const bestRelease = recording => [...(recording.releases || [])].sort((a, b) => String(a.date || '9999').localeCompare(String(b.date || '9999')))[0] || null;
@@ -115,9 +117,21 @@ export function applyDecision(item, decision, ranked) {
       durationMs: selected.durationMs ? 'musicbrainz' : null }, candidates };
 }
 
+export function prepareLookupMetadata(item) {
+  const local = item.local || item;
+  const title = String(local.title || '').replace(/\s+(?:(?:official\s+)?(?:music\s+)?video|official\s+audio|lyrics?(?:\s+video)?|visuali[sz]er)\s*$/i, '').trim() || local.title;
+  let artist = String(local.artist || '').trim();
+  if (!artist && local.album) {
+    const collectionArtist = /^\s*\d+(?:\.\d+)?\s+hours?\s+of\s+(.+?)\s+(?:for|to|at|during)\b/i.exec(local.album);
+    if (collectionArtist) artist = collectionArtist[1].trim();
+  }
+  return { ...local, title, artist };
+}
+
 export function musicBrainzQuery(item) {
+  const lookup = prepareLookupMetadata(item);
   const quote = value => `"${String(value).replace(/[\\"]/g, '\\$&')}"`;
-  return [`recording:${quote(item.title)}`, ...(item.artist ? [`artist:${quote(item.artist)}`] : [])].join(' AND ');
+  return [`recording:${quote(lookup.title)}`, ...(lookup.artist ? [`artist:${quote(lookup.artist)}`] : [])].join(' AND ');
 }
 
 const delay = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
@@ -155,7 +169,8 @@ export async function enrichCatalog(catalog, client, limit = Infinity) {
     if (!item.eligibleForEnrichment) { items.push(item); continue; }
     if (queried >= limit) { items.push(item); continue; }
     const data = await client.search(item); queried++;
-    const ranked = rankMusicBrainzCandidates(item.local || item, data.recordings || []), decision = decideCandidate(item.local || item, ranked);
+    const lookup = prepareLookupMetadata(item);
+    const ranked = rankMusicBrainzCandidates(lookup, data.recordings || []), decision = decideCandidate(lookup, ranked);
     items.push(applyDecision(item, decision, ranked));
   }
   const counts = items.reduce((result, item) => ({ ...result, [item.status]: (result[item.status] || 0) + 1 }), {});

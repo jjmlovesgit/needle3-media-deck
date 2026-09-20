@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { applyDecision, decideCandidate, enrichCatalog, inferLocalMetadata, markEnrichmentEligibility, musicBrainzQuery, MusicBrainzClient, rankMusicBrainzCandidates, scanLibrary } from '../lib.mjs';
+import { applyDecision, decideCandidate, enrichCatalog, inferLocalMetadata, markEnrichmentEligibility, musicBrainzQuery, MusicBrainzClient, prepareLookupMetadata, rankMusicBrainzCandidates, scanLibrary } from '../lib.mjs';
 
 test('local inference produces uniform metadata without media-specific rules', () => {
   assert.deepEqual(inferLocalMetadata('Example Artist - Example Track Alpha_20260917_114941_token/source.mp4'),
@@ -54,6 +54,20 @@ test('title-only evidence stays reviewable and query escaping is bounded', () =>
   assert.equal(decideCandidate(titleOnly, ranked).status, 'review');
   assert.equal(musicBrainzQuery({ title: 'Example "Quoted" Track', artist: 'Example Artist' }),
     'recording:"Example \\"Quoted\\" Track" AND artist:"Example Artist"');
+});
+
+test('lookup preparation removes generic promotional suffixes and derives collection artist', () => {
+  assert.deepEqual(prepareLookupMetadata({ local: { title: 'Example Track Official Video', artist: '', album: '3 Hours of Example Artist for Evening Listening', track: 1 } }),
+    { title: 'Example Track', artist: 'Example Artist', album: '3 Hours of Example Artist for Evening Listening', track: 1 });
+  assert.equal(musicBrainzQuery({ local: { title: 'Example Track Official Video', artist: 'Example Artist' } }),
+    'recording:"Example Track" AND artist:"Example Artist"');
+});
+
+test('repeated words do not score as an exact title match', () => {
+  const ranked = rankMusicBrainzCandidates({ title: 'Example', artist: '' }, [
+    { id: 'repeated', title: 'Example Example Example', score: 100, 'artist-credit': [] }
+  ]);
+  assert(ranked[0].titleSimilarity < .6);
 });
 
 test('client caches responses and enrichment stays standalone', async () => {

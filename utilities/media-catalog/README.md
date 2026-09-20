@@ -28,6 +28,8 @@ Override it with `--contact` if the utility is distributed elsewhere. Use `--lim
 
 Only a high-scoring result supported by both title and artist evidence is automatically accepted. Files without enough evidence receive `review` or `unmatched` status and retain their local metadata. Web candidates never silently replace local values.
 
+Lookup normalization removes generic promotional suffixes such as “official video” and can derive an artist from neutral collection patterns such as “3 Hours of Artist for …”. Display metadata remains unchanged until a high-confidence result is accepted.
+
 Each file has uniform `title`, `artist`, `album`, `track`, `year`, `durationMs`, `musicBrainzRecordingId`, `aliases`, `status`, `confidence`, and `provenance` fields. The catalog also preserves the source-relative path and raw local inference for auditing.
 
 Run `npm test` from this directory. MusicBrainz documents its [API](https://musicbrainz.org/doc/MusicBrainz_API), [recording search fields](https://musicbrainz.org/doc/MusicBrainz_API/Search), and [rate limits](https://musicbrainz.org/doc/MusicBrainz_API/Rate_Limiting).
