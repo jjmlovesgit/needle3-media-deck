@@ -1,0 +1,2 @@
+# Verified local Needle assets are reproducibly acquired, not committed binaries.
+/app/vendor/needle3/

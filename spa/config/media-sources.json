@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "id": "shared-media-output",
+      "path": "C:\\Projects\\karaoke_Agent\\output",
+      "readOnly": true
+    }
+  ]
+}

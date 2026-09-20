@@ -1,0 +1,204 @@
+[
+  {
+    "name": "play_media",
+    "description": "Play a NAMED song or video from the local library. Copy every title word exactly as the user wrote it; never drop initial letters or shorten a title. Example: Play Almost Cut My Hair means title Almost Cut My Hair, not Most Cut My Hair. Use this alone for named playback. Optional artist, album, or format only when stated.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "The complete requested media title. Preserve its beginning. When the request ends with an artist possessive plus version, put that name in artist instead: 'Play Born on the Bayou John Fogerty's version' means title 'Born on the Bayou' and artist 'John Fogerty'. Never return only 'Bayou'.",
+          "minLength": 1
+        },
+        "artist": {
+          "type": "string",
+          "description": "An artist explicitly named by the user, including the name before the possessive phrase 'artist's version'.",
+          "minLength": 1
+        },
+        "album": {
+          "type": "string",
+          "minLength": 1
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "any",
+            "mp3",
+            "original_mp4",
+            "karaoke_mp4"
+          ]
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "control_playback",
+    "description": "Control the current track: play, resume, pause, stop, previous track, or next track. Do not use for skipping, forwarding, or rewinding by seconds.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "play",
+            "pause",
+            "stop",
+            "previous",
+            "next"
+          ]
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "skip_forward_10_seconds",
+    "description": "Only skip forward, go forward, or move ahead exactly 10 seconds. Never use this tool for rewind, back, or backward.",
+    "parameters": {"type": "object", "properties": {}, "additionalProperties": false}
+  },
+  {
+    "name": "rewind_back_10_seconds",
+    "description": "Only rewind, go back, or move backward exactly 10 seconds. Never use this tool for skip, forward, or ahead.",
+    "parameters": {"type": "object", "properties": {}, "additionalProperties": false}
+  },
+  {
+    "name": "show_mp3_files",
+    "description": "Use for exactly this kind of request: Show MP3 files. Filter the media list to MP3 audio files. This does not open the library panel.",
+    "parameters": {"type": "object", "properties": {}, "additionalProperties": false}
+  },
+  {
+    "name": "show_original_videos",
+    "description": "Use for exactly this kind of request: Show original videos. Filter the media list to original MP4 videos. This does not open the library panel.",
+    "parameters": {"type": "object", "properties": {}, "additionalProperties": false}
+  },
+  {
+    "name": "show_karaoke_files_or_videos",
+    "description": "Use for exactly this kind of request: Show karaoke files. Filter the media list to karaoke files or videos. This does not open the library panel.",
+    "parameters": {"type": "object", "properties": {}, "additionalProperties": false}
+  },
+  {
+    "name": "show_all_media",
+    "description": "Use for exactly this kind of request: Show all media. Clear the media category filter. This does not open the library panel.",
+    "parameters": {"type": "object", "properties": {}, "additionalProperties": false}
+  },
+  {
+    "name": "search_library",
+    "description": "Search the media library for a user-provided title or artist query. Do not use this to show a media category or to show or hide the library panel.",
+    "parameters": {
+      "type": "object",
+      "properties": {"query": {"type": "string"}},
+      "required": ["query"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "refresh_library",
+    "description": "Refresh or rescan the local media library.",
+    "parameters": {"type": "object", "properties": {}, "additionalProperties": false}
+  },
+  {
+    "name": "set_volume",
+    "description": "Set playback volume from 0 to 100 percent. Use only for an explicit volume request. Never add an EQ preset.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "volume": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      "required": ["volume"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "load_eq_preset",
+    "description": "Load a named equalizer preset. Use only when the user explicitly requests an EQ preset. Never add a volume.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "preset": {
+          "type": "string",
+          "minLength": 1,
+          "enum": [
+            "Flat",
+            "Rock",
+            "Pop",
+            "Jazz",
+            "Classical",
+            "Vocal",
+            "Bass Boost",
+            "Dance",
+            "Acoustic"
+          ]
+        }
+      },
+      "required": ["preset"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "show_graphic_equalizer_panel",
+    "description": "Show, open, or display the Graphic Equalizer panel. Use only when the user names the equalizer.",
+    "parameters": {"type": "object", "properties": {}, "additionalProperties": false}
+  },
+  {
+    "name": "close_graphic_equalizer_panel",
+    "description": "Use for exactly this kind of request: Close the Graphic Equalizer. Close or hide the equalizer panel.",
+    "parameters": {"type": "object", "properties": {}, "additionalProperties": false}
+  },
+  {
+    "name": "open_media_library_panel",
+    "description": "Open, show, or display the Media Library panel only when the user explicitly says library. Do not use for requests to show MP3, original, karaoke, or all media files.",
+    "parameters": {"type": "object", "properties": {}, "additionalProperties": false}
+  },
+  {
+    "name": "hide_media_library_panel",
+    "description": "Use for exactly this kind of request: Hide the library. Hide or close the Media Library panel only when the user explicitly says library.",
+    "parameters": {"type": "object", "properties": {}, "additionalProperties": false}
+  },
+  {
+    "name": "close_performance_monitor_panel",
+    "description": "Use for exactly this kind of request: Close the performance monitor. Close or hide the Performance Monitor panel.",
+    "parameters": {"type": "object", "properties": {}, "additionalProperties": false}
+  },
+  {
+    "name": "set_panel",
+    "description": "Show, hide, open, close, or toggle only the voice command or sidebar panel.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "section": {
+          "type": "string",
+          "enum": [
+            "voice",
+            "sidebar"
+          ]
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "open",
+            "close",
+            "show",
+            "hide",
+            "toggle"
+          ]
+        }
+      },
+      "required": [
+        "section",
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  }
+]

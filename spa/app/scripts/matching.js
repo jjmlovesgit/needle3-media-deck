@@ -1,0 +1,29 @@
+import { normalizeMediaText as normalize } from './metadata.js';
+/** @typedef {{title:string,artist?:string,album?:string,format?:'any'|import('./types.js').MediaKind}} MediaRequest */
+/** Deterministic matching only. Never executes a partial or ambiguous result.
+ * @param {import('./types.js').MediaItem[]} items @param {MediaRequest} request
+ */
+export function matchMedia(items, request) {
+  if (!request || typeof request.title !== 'string' || !normalize(request.title) ||
+      Object.keys(request).some(key => !['title','artist','album','format'].includes(key)) ||
+      ['artist','album'].some(key => request[key] !== undefined && typeof request[key] !== 'string') ||
+      !['any','mp3','original_mp4','karaoke_mp4'].includes(request.format || 'any')) {
+    return { status: 'invalid', candidates: [], message: 'Enter a title and valid optional artist, album, and format.' };
+  }
+  const title = normalize(request.title);
+  const candidates = items.filter(item => (!request.format || request.format === 'any' || item.kind === request.format)
+    && (!request.artist || normalize(item.artist || '') === normalize(request.artist))
+    && (!request.album || normalize(item.album || '') === normalize(request.album)));
+  const exact = candidates.filter(item => normalize(item.title) === title);
+  if (exact.length === 1) return { status: 'match', candidates: exact, message: 'One exact normalized match. Choose it to play.' };
+  if (exact.length > 1) return { status: 'ambiguous', candidates: exact, message: 'Several matching versions. Choose a file or specify artist, album, or format.' };
+  const partial = candidates.filter(item => (' ' + normalize(item.title) + ' ').includes(' ' + title + ' '));
+  if(partial.length)return { status: 'ambiguous', candidates: partial, message: 'Partial title matches; choose a candidate to confirm.' };
+  const requestedTokens=new Set(title.split(' '));
+  const metadataMatches=candidates.filter(item=>{
+    const available=new Set(normalize([item.title,item.artist,item.album].filter(Boolean).join(' ')).split(' '));
+    return [...requestedTokens].every(token=>available.has(token));
+  });
+  return metadataMatches.length?{status:'ambiguous',candidates:metadataMatches,message:'The requested words match local title and artist metadata; choose a candidate to confirm.'}
+    :{ status: 'none', candidates: [], message: 'No matching local media. Check the title or optional filters.' };
+}

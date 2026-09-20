@@ -1,0 +1,15 @@
+/* Integration-only rules. reference.css is extracted verbatim from the clone. */
+[hidden]{display:none!important}
+body.audio #media{display:none}
+.library-item{width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer}
+.library-item:focus-visible,button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.library-item.selected{border-color:var(--cyan);box-shadow:inset 3px 0 var(--cyan)}
+.library-title,.library-meta{overflow-wrap:anywhere}
+button.download{width:100%;cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}
+#stage{cursor:pointer}
+#libraryNotice{color:var(--muted);font:10px Consolas,monospace;margin:8px 0}
+.command-sensitivity{display:grid;grid-template-columns:minmax(220px,1fr) auto auto;align-items:center;gap:10px;padding:6px 8px;border:1px solid #173f37;border-radius:7px;background:#020a08;color:#78958d;font:700 9px Consolas,monospace;letter-spacing:.06em}.command-sensitivity label{display:grid;grid-template-columns:auto minmax(100px,1fr);align-items:center;gap:10px}.command-sensitivity label span{display:flex;align-items:center;gap:7px;white-space:nowrap}.command-sensitivity output{color:var(--signal)}.command-sensitivity input{width:100%;accent-color:var(--signal)}.command-sensitivity button{min-height:30px;padding:0 12px;border:1px solid #247448;border-radius:7px;background:linear-gradient(#16492f,#07170f);color:var(--signal);font:800 9px Consolas,monospace;letter-spacing:.06em;cursor:pointer}.command-sensitivity button:disabled{opacity:.35}
+@media(max-width:650px){.library-tools{display:flex;flex-wrap:wrap}.library-tools>*{min-width:0;flex:1 1 120px}.library-panel summary,.command-panel summary,.monitor-panel summary,.eq-panel summary{gap:8px;flex-wrap:wrap}.telemetry{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.transport{gap:4px}.transport .seek-button{gap:3px}.transport .seek-button small{font-size:7px}.file-name,.track-name{overflow-wrap:anywhere}}
+@media(max-width:650px){.command-sensitivity{grid-template-columns:1fr}.command-sensitivity label{grid-template-columns:1fr}.command-sensitivity button{width:100%}}
+.grid{grid-template-columns:minmax(0,1fr)}.stack,.panel,.track-display,.telemetry,.telemetry>*{min-width:0}

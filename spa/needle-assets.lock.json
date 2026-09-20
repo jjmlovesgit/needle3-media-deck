@@ -1,0 +1,50 @@
+{
+  "repository": "Cactus-Compute/needle3",
+  "revision": "b274efcb211a9eef48c9a88da4b43bd569696a39",
+  "generation": 3,
+  "depth": 20,
+  "license": "Apache-2.0",
+  "files": [
+    {
+      "name": "needle.js",
+      "source": "https://huggingface.co/Cactus-Compute/needle3/resolve/b274efcb211a9eef48c9a88da4b43bd569696a39/wasm/needle.js",
+      "bytes": 62502,
+      "sha256": "d00ec67ec7e03e4720dfc6c3dad95a0540afd00169a983ce3fabcd7aeaa0fa93",
+      "gitBlob": "f5f8b957cb610ba360a59cce23d33ef3cb7e28a5"
+    },
+    {
+      "name": "needle.wasm",
+      "source": "https://huggingface.co/Cactus-Compute/needle3/resolve/b274efcb211a9eef48c9a88da4b43bd569696a39/wasm/needle.wasm",
+      "bytes": 688521,
+      "sha256": "77c6a38cacb8efbeebfd5202082ba9a0850a7c3066db40d4d0e80509cd137d9b",
+      "gitBlob": "eee3359048de421f46c1fa05978bcfb3e4b782cc"
+    },
+    {
+      "name": "needle3.cact",
+      "source": "https://huggingface.co/Cactus-Compute/needle3/resolve/b274efcb211a9eef48c9a88da4b43bd569696a39/needle3.cact",
+      "bytes": 35335380,
+      "sha256": "c9d915eca282ed42d1a09b143b592adb4cc6744ffe2d294adf5cfc5548170c38",
+      "gitBlob": "847dde4d45ba992782d772b2e1188c10fc3869a1"
+    },
+    {
+      "name": "needle.h",
+      "source": "https://huggingface.co/Cactus-Compute/needle3/resolve/b274efcb211a9eef48c9a88da4b43bd569696a39/wasm/needle.h",
+      "bytes": 1187,
+      "sha256": "3aa713942528d944598458cecb4a262f2cc49349bec63355f91df0b159964e55",
+      "gitBlob": "9eb16c8a3771cd1881d3ac634e47f5ba30985ac9"
+    },
+    {
+      "name": "LICENSE",
+      "source": "https://huggingface.co/Cactus-Compute/needle3/resolve/b274efcb211a9eef48c9a88da4b43bd569696a39/LICENSE",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "gitBlob": "d645695673349e3947e8e5ae42332d0ac3164cd7"
+    },
+    {
+      "name": "needle-browser.mjs",
+      "derivedFrom": "needle.js",
+      "bytes": 62676,
+      "sha256": "fbbd1c9f271d36155c6529798dfceeddb177df4e1e9547c96f3e1d201d4c41fa"
+    }
+  ]
+}
