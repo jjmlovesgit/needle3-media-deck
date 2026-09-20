@@ -11,6 +11,7 @@ const assert=require('node:assert/strict');
   const cases=[
    {tool:'play_media',text:'Play Almost Cut My Hair',verify:()=>page.locator('.track-name').textContent().then(value=>/Almost Cut My Hair/i.test(value))},
    {tool:'play_media',text:"Play Born on the Bayou John Fogerty's version",verify:()=>page.locator('.track-name').textContent().then(value=>/Born on the Bayou/i.test(value))},
+   {tool:'play_media',text:'Play Doobie Brothers Greatest Hits',verify:()=>page.locator('.track-name').textContent().then(value=>/Doobie Brothers|Best of The Doobies/i.test(value))},
    {tool:'control_playback',text:'Pause playback',verify:()=>page.locator('#media').evaluate(element=>element.paused)},
    {tool:'skip_forward_10_seconds',text:'Skip forward 10 seconds',before:()=>page.locator('#media').evaluate(element=>element.currentTime),verify:before=>page.locator('#media').evaluate((element,start)=>element.currentTime>=start+9,before)},
    {tool:'rewind_back_10_seconds',text:'Rewind 10 seconds',before:()=>page.locator('#media').evaluate(element=>element.currentTime),verify:before=>page.locator('#media').evaluate((element,start)=>element.currentTime<=start-9,before)},

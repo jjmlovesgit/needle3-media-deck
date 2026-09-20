@@ -24,6 +24,14 @@ export function matchMedia(items, request) {
     const available=new Set(normalize([item.title,item.artist,item.album].filter(Boolean).join(' ')).split(' '));
     return [...requestedTokens].every(token=>available.has(token));
   });
-  return metadataMatches.length?{status:'ambiguous',candidates:metadataMatches,message:'The requested words match local title and artist metadata; choose a candidate to confirm.'}
-    :{ status: 'none', candidates: [], message: 'No matching local media. Check the title or optional filters.' };
+  if(metadataMatches.length)return {status:'ambiguous',candidates:metadataMatches,message:'The requested words match local title and artist metadata; choose a candidate to confirm.'};
+  const requested=[...requestedTokens];
+  const coverage=value=>{
+    const available=normalize(value).split(' ').filter(Boolean);
+    return requested.filter(token=>available.some(word=>word===token||(token.length>=5&&word.length>=5&&Math.abs(word.length-token.length)<=1&&(word.startsWith(token.slice(0,-1))||token.startsWith(word.slice(0,-1)))))).length/requested.length;
+  };
+  const ranked=candidates.map((item,index)=>({item,index,primary:coverage([item.title,item.artist].filter(Boolean).join(' ')),all:coverage([item.title,item.artist,item.album].filter(Boolean).join(' '))}))
+    .filter(entry=>entry.all>=.7).sort((a,b)=>b.primary-a.primary||b.all-a.all||a.index-b.index);
+  return ranked.length?{status:'ambiguous',candidates:ranked.map(entry=>entry.item),message:'A close local metadata match was found; choose a candidate to confirm.'}
+    :{status:'none',candidates:[],message:'No matching local media. Check the title or optional filters.'};
 }

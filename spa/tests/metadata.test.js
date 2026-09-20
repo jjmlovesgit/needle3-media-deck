@@ -43,6 +43,16 @@ test('possessive version requests can match grounded title and artist metadata',
   assert.equal(result.status,'ambiguous');
   assert.equal(result.candidates[0].id,'bayou');
 });
+test('bounded metadata fallback ranks a truncated full album above its tracks', () => {
+  const album='The Doobie Brothers - Best of The Doobies Volume I Full Album Doobie Brothers Greates';
+  const media=[
+    {id:'track',title:'Long Train Runnin',artist:'',album,kind:'mp3'},
+    {id:'full',title:'Best of The Doobies Volume I Full Album Doobie Brothers Greates',artist:'The Doobie Brothers',album:'',kind:'mp3'}
+  ];
+  const result=matchMedia(media,{title:'Doobie Brothers Greatest Hits'});
+  assert.equal(result.status,'ambiguous');
+  assert.equal(result.candidates[0].id,'full');
+});
 test('library search covers artist/album and sorting is deterministic', () => {
   const ui=new UIState(); ui.setQuery('other artist');
   assert.equal(ui.visible(items)[0].id,'3');

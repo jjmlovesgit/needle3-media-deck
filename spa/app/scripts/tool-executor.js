@@ -40,7 +40,7 @@ export function validateCalls(calls,transcript){
     if(key==='format'&&value!=='any'&&!mentions(text,phrases[value]||[]))throw new Error('Media format was not requested.');
    }
   }
-  if(call.name==='play_media'&&!mentions(text,phrases.play))throw new Error('Playback was not requested.');
+  if(call.name==='play_media'&&!mentions(text,phrases.play)&&normalize(args.title)!==text)throw new Error('Playback was not requested.');
   if(call.name==='play_media'){
    const explicit=/^(?:please\s+)?(?:play|resume|continue)\s+(.+)$/i.exec(transcript.trim());
    if(explicit&&normalize(explicit[1]).split(' ')[0]!==normalize(args.title).split(' ')[0])throw new Error('Needle omitted the beginning of the requested title. Nothing was played.');

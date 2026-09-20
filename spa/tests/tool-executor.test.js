@@ -40,6 +40,11 @@ test('preserves the beginning of an explicitly requested title',()=>{
  assert.deepEqual(validateCalls([call('play_media',{title,artist})],transcript),[call('play_media',{title,artist})]);
  assert.throws(()=>validateCalls([call('play_media',{title:"Bayou John Fogerty's version"})],transcript),/omitted the beginning/);
 });
+test('accepts an exact title-only playback request but rejects an invented title',()=>{
+ const title='Doobie Brothers Greatest Hits';
+ assert.deepEqual(validateCalls([call('play_media',{title})],title),[call('play_media',{title})]);
+ assert.throws(()=>validateCalls([call('play_media',{title:'Greatest Hits'})],title));
+});
 test('ambiguous selection is presented and never played',async()=>{
  let played=false,shown=false;
  const result=await executeCalls([call('play_media',{title:'Dreams'})],{
