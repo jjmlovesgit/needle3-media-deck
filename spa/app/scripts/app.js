@@ -67,9 +67,9 @@ function renderLibrary(){
  list.replaceChildren();
  const visible=ui.visible(items);
  function row(title,meta,badge,action,id,album=false){
-  const entry=document.createElement('div');entry.className='library-entry';
-  const button=document.createElement('button');button.type='button';button.className='library-item'+(album?' library-album':'');
-  if(id){button.dataset.id=id;button.classList.toggle('selected',player.state.mediaId===id);}
+  const entry=document.createElement('div');entry.className='library-item'+(album?' library-album':'');entry.setAttribute('role','group');
+  const button=document.createElement('button');button.type='button';button.className='library-play';
+  if(id){entry.dataset.id=id;entry.classList.toggle('selected',player.state.mediaId===id);}
   const copy=document.createElement('div'),name=document.createElement('div'),details=document.createElement('div'),tag=document.createElement('span');
   name.className='library-title';name.textContent=title;details.className='library-meta';details.textContent=meta;tag.className='library-badge';tag.textContent=badge;
   copy.append(name,details);button.append(copy,tag);button.onclick=action;entry.append(button);
