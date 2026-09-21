@@ -77,6 +77,11 @@ test('required media type preserves explicit formats through validation and exec
   assert.deepEqual(request,{title,format});
  }
 });
+test('drops a format token copied into optional metadata without changing Needle’s tool or format',async()=>{
+ const calls=validateCalls([call('play_media',{title:'Example Signal MP3',artist:'MP3',album:'Example Signal MP3',media_type:'mp3'})],'Play Example Signal MP3');let request;
+ await executeCalls(calls,{matchMedia:value=>(request=value,{status:'match',candidates:[{id:'one',title:'Example Signal'}]}),playMedia:()=>{},showCandidates:()=>{}});
+ assert.deepEqual(request,{title:'Example Signal',format:'mp3'});
+});
 test('accepts an exact title-only playback request but rejects an invented title',()=>{
  const title='Example Ensemble Anthology';
  assert.deepEqual(validateCalls([call('play_media',{title,media_type:'any'})],title),[call('play_media',{title,media_type:'any'})]);

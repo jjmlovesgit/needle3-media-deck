@@ -97,6 +97,8 @@ export async function executeCalls(calls,api,{allowAmbiguousMedia=false}={}){
    if(suffix)for(const key of ['title','artist','album'])if(mediaRequest[key]){
     const value=mediaRequest[key].replace(suffix,'').trim();if(value)mediaRequest[key]=value;
    }
+   const formatOnly={mp3:['mp3','audio'],mp4:['mp4','video','videos','original video','original videos','karaoke','karaoke video','karaoke videos']}[media_type]||[];
+   for(const key of ['artist','album'])if(formatOnly.includes(normalize(mediaRequest[key]||'')))delete mediaRequest[key];
    for(const key of ['artist','album'])if(normalize(mediaRequest[key]||'')===normalize(mediaRequest.title))delete mediaRequest[key];
    const match=api.matchMedia(format?{...mediaRequest,format}:mediaRequest);
    if(match.status==='ambiguous'&&allowAmbiguousMedia&&match.candidates.length){
