@@ -61,6 +61,24 @@ title, artist, album, track, year, aliases, and MP4 classification in
 participate in voice matching and library search. Manually reviewed fields are
 protected from later MusicBrainz enrichment.
 
+### Catalog metadata
+
+For each song, the useful catalog fields are:
+
+- **Title:** required.
+- **Artist:** strongly recommended.
+- **Aliases:** valuable for voice-friendly alternate names.
+- **Media type:** MP3, original MP4, or karaoke MP4.
+- **Album, track, and year:** optional disambiguation and display fields.
+
+Clear title and artist metadata supports simple, predictable command forms:
+
+```text
+Play Artist Title
+Play Artist Title MP3
+Play Artist Title MP4
+```
+
 ## Playback and commands
 
 The responsive Performance Monitor uses one persistent media element for both
@@ -83,6 +101,25 @@ Needle selects the application tool and the `mp3`, `mp4`, or `any` media type.
 Validated calls invoke typed application APIs rather than manipulating the DOM.
 The confirmation slider sets the confidence threshold: commands below it wait
 for confirmation; a value of 0 executes every call that passes validation.
+
+The command execution boundary is:
+
+```text
+Speech or typed command
+        ↓
+Needle tool proposal
+        ↓
+Generic grounding and schema validation
+        ↓
+Deterministic catalog matching
+        ↓
+Typed Media Deck API
+        ↓
+Playback or UI action
+```
+
+Needle provides the language interpretation. The application provides truth,
+safety, identity, and execution.
 
 For manual microphone input, hold the microphone button or **Ctrl+Space**,
 speak one command, and release. There is no wake word, VAD loop, or background
