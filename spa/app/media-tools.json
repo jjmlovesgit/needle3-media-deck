@@ -241,15 +241,14 @@
   },
   {
     "name": "set_panel",
-    "description": "Show, hide, open, close, or toggle only the voice command or sidebar panel.",
+    "description": "Show, hide, open, or close the voice command panel.",
     "parameters": {
       "type": "object",
       "properties": {
         "section": {
           "type": "string",
           "enum": [
-            "voice",
-            "sidebar"
+            "voice"
           ]
         },
         "action": {
@@ -258,8 +257,7 @@
             "open",
             "close",
             "show",
-            "hide",
-            "toggle"
+            "hide"
           ]
         }
       },

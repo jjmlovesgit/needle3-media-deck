@@ -31,8 +31,12 @@ const assert=require('node:assert/strict');
   await p.locator('#seek').fill('500');assert(await p.locator('#media').evaluate(el=>Math.abs(el.currentTime-el.duration*.5)<1));
   await p.locator('#stage').click();
   await p.screenshot({path:path.join(artifacts,'reference-spa-video.png'),fullPage:true});
-  await p.locator('#toggleSidePanel').click();assert(await p.locator('#libraryPanel').isHidden());
-  await p.locator('#toggleSidePanel').click();assert(await p.locator('#libraryPanel').isVisible());
+  for(let cycle=0;cycle<3;cycle++){
+   await p.locator('#libraryPanel summary').click();assert.equal(await p.locator('#libraryPanel').evaluate(el=>el.open),false);
+   await p.locator('#libraryPanel summary').click();assert.equal(await p.locator('#libraryPanel').evaluate(el=>el.open),true);
+   const row=await p.locator('.library-item').first().evaluate(el=>({width:el.getBoundingClientRect().width,height:el.getBoundingClientRect().height,title:el.querySelector('.library-title')?.textContent||''}));
+   assert(row.width>100&&row.height>30&&row.title,'library row should retain its layout after close/open');
+  }
   await p.locator('[data-filter="albums"]').click();assert.equal(await p.locator('.library-album').count(),3);
   await p.locator('.library-album').first().click();assert.match(await p.locator('.library-item').nth(1).textContent(),/^01 ·/);
   for(const width of [390,320]){await p.setViewportSize({width,height:900});assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'overflow at '+width);await p.screenshot({path:path.join(artifacts,'reference-spa-'+width+'.png'),fullPage:true});}

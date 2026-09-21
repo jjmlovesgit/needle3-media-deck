@@ -1,7 +1,7 @@
 import {normalizeMediaText as normalize} from './metadata.js';
 const enums={
  control_playback:{action:['play','pause','stop','previous','next']},
- set_panel:{section:['voice','sidebar'],action:['open','close','show','hide','toggle']},
+ set_panel:{section:['voice'],action:['open','close','show','hide']},
  play_media:{media_type:['any','mp3','mp4']}
 };
 const keys={play_media:['title','artist','album','media_type'],control_playback:['action'],rewind_10_seconds:[],skip_forward_10_seconds:[],show_mp3_files:[],show_original_videos:[],show_karaoke_files_or_videos:[],show_all_media_files:[],show_graphic_equalizer_panel:[],close_graphic_equalizer_panel:[],show_library_panel:[],hide_media_library_panel:[],close_performance_monitor_panel:[],search_library:['query'],refresh_library:[],set_volume:['volume'],mute_audio:[],unmute_audio:[],load_eq_preset:['preset'],set_panel:['section','action']};
@@ -9,7 +9,7 @@ const required={play_media:['title','media_type'],control_playback:['action'],re
 const presets=['Flat','Rock','Pop','Jazz','Classical','Vocal','Bass Boost','Dance','Acoustic'];
 const phrases={
  play:['play','resume','continue'],pause:['pause'],stop:['stop'],previous:['previous','back track'],next:['next'],
- performance_monitor:['performance monitor','monitor'],equalizer:['equalizer','eq'],library:['library'],voice:['voice','command'],sidebar:['sidebar','side panel'],
+ performance_monitor:['performance monitor','monitor'],equalizer:['equalizer','eq'],library:['library'],voice:['voice','command'],
  all:['all'],albums:['album','albums'],mp3:['mp3','audio'],original_mp4:['original','mp4','video','videos'],karaoke_mp4:['karaoke']
 };
 const panelActionPhrases={open:['open','show','display','expand'],show:['show','display','open'],close:['close','hide','collapse'],hide:['hide','close'],toggle:['toggle']};

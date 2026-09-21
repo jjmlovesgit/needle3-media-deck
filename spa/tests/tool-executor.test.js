@@ -34,6 +34,7 @@ test('validates Needle-selected seek, filter, search, and panel tools without re
  assert.deepEqual(validateCalls([call('search_library',{query:'Example Track Alpha'})],'Find Example Track Alpha'),[call('search_library',{query:'Example Track Alpha'})]);
  assert.deepEqual(validateCalls([call('show_library_panel',{})],'Show library'),[call('show_library_panel',{})]);
  assert.deepEqual(validateCalls([call('show_graphic_equalizer_panel',{})],'Show graphic equalizer'),[call('show_graphic_equalizer_panel',{})]);
+ assert.throws(()=>validateCalls([call('set_panel',{section:'sidebar',action:'toggle'})],'Toggle sidebar'));
  assert.throws(()=>validateCalls([call('search_library',{query:'karaoke videos'})],'delete karaoke videos'));
 });
 test('named and current-track playback cannot execute together',()=>{

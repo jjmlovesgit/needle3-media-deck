@@ -76,6 +76,17 @@ try {
     if (globalThis.__mediaDeckCatalogRegression.librarySize() !== library.items.length) throw new Error('application library did not finish indexing');
     const media = document.querySelector('#media'); media.muted = true;
     const counts = { mp3: 0, original_mp4: 0, karaoke_mp4: 0 }, failures = [];
+    const libraryPanel = document.querySelector('#libraryPanel');
+    for (let cycle = 0; cycle < 3; cycle++) {
+      libraryPanel.open = false; await new Promise(resolve => requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+      libraryPanel.open = true; await new Promise(resolve => requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+      const row = document.querySelector('.library-item'), title = row?.querySelector('.library-title')?.textContent || '';
+      const bounds = row?.getBoundingClientRect();
+      if (!bounds || bounds.width <= 100 || bounds.height <= 30 || !title) {
+        failures.push({ kind: 'all', stage: 'library-layout', cycle: cycle + 1,
+          error: 'Media Library row collapsed after close/open' }); break;
+      }
+    }
     const waitFor = (event, timeoutMs) => new Promise((resolve, reject) => {
       const timer = setTimeout(() => { cleanup(); reject(new Error('timeout waiting for ' + event)); }, timeoutMs);
       const success = () => { cleanup(); resolve(); }, failure = () => { cleanup(); reject(new Error(media.error?.message || 'media error')); };

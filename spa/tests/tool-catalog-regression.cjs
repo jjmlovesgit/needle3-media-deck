@@ -30,7 +30,7 @@ const assert=require('node:assert/strict');
    {tool:'load_eq_preset',text:'Load the Rock EQ preset',verify:()=>page.locator('#eqPresetStatus').textContent().then(value=>/Rock loaded/.test(value))},
    {tool:'show_graphic_equalizer_panel',text:'Show graphic equalizer',verify:()=>page.locator('#equalizerPanel').evaluate(element=>element.open&&!element.hidden)},
    {tool:'show_library_panel',text:'Show the library',verify:()=>page.locator('#libraryPanel').evaluate(element=>element.open&&!element.hidden)},
-   {tool:'hide_media_library_panel',text:'Hide the library',verify:()=>page.locator('#libraryPanel').evaluate(element=>element.hidden)},
+   {tool:'hide_media_library_panel',text:'Hide the library',verify:()=>page.locator('#libraryPanel').evaluate(element=>!element.hidden&&!element.open)},
    {tool:'close_performance_monitor_panel',text:'Close the performance monitor',verify:()=>page.locator('#monitorPanel').evaluate(element=>!element.open)},
    {tool:'close_graphic_equalizer_panel',text:'Close the Graphic Equalizer',before:()=>page.locator('#equalizerPanel').evaluate(element=>{element.open=true;element.hidden=false;return element.open}),verify:()=>page.locator('#equalizerPanel').evaluate(element=>!element.open)}
   ];
