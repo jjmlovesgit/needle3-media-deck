@@ -5,24 +5,41 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MediaSource, byteRange, within } from './media-source.mjs';
 import { createCatalogItemApi } from '../../utilities/media-catalog/editor-server.mjs';
+
+const parsePort = value => {
+  const port = Number(value ?? 8080);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('MEDIA_DECK_PORT must be an integer from 1 to 65535.');
+  return port;
+};
+
 await verifyNeedleAssets();
+const port = parsePort(process.env.MEDIA_DECK_PORT);
 const root = path.resolve(import.meta.dirname, '../app');
 const configUrl = new URL('../config/media-sources.json', import.meta.url);
 const config = JSON.parse(await readFile(configUrl, 'utf8'));
 const configuredSource = config.sources[0];
-const media = new MediaSource({ ...configuredSource,
-  path: path.resolve(path.dirname(fileURLToPath(configUrl)), configuredSource.path) });
+const configuredPath = process.env.MEDIA_DECK_LIBRARY?.trim()
+  ? path.resolve(process.env.MEDIA_DECK_LIBRARY.trim())
+  : path.resolve(path.dirname(fileURLToPath(configUrl)), configuredSource.path);
+const media = new MediaSource({ ...configuredSource, path: configuredPath });
 const catalogItemApi = createCatalogItemApi(path.join(media.source.path, 'catalog.json'));
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.mjs': 'text/javascript', '.wasm': 'application/wasm', '.json': 'application/json' };
+const allowedHosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
+const contentSecurityPolicy = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'";
+
 const appServer = http.createServer(async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Security-Policy', contentSecurityPolicy);
   // Restrict loopback host and browser origin; no cross-origin library access.
-  if (!['127.0.0.1:8080', 'localhost:8080'].includes(req.headers.host) ||
-      (req.headers.origin && !['http://127.0.0.1:8080', 'http://localhost:8080'].includes(req.headers.origin)) ||
-      req.headers['sec-fetch-site'] === 'cross-site') { res.writeHead(403).end(); return; }
+  const origin = req.headers.origin;
+  let originAllowed = true;
+  try { if (origin) originAllowed = allowedHosts.has(new URL(origin).host); } catch { originAllowed = false; }
+  if (!allowedHosts.has(req.headers.host || '') || !originAllowed || req.headers['sec-fetch-site'] === 'cross-site') {
+    res.writeHead(403).end(); return;
+  }
   try {
-    const url = new URL(req.url, 'http://localhost');
+    const url = new URL(req.url, `http://127.0.0.1:${port}`);
     if (url.pathname.startsWith('/api/catalog/items/')) {
       const id = decodeURIComponent(url.pathname.slice('/api/catalog/items/'.length));
       await catalogItemApi(req, res, id); return;
@@ -60,6 +77,15 @@ const appServer = http.createServer(async (req, res) => {
     res.end(req.method === 'HEAD' ? undefined : body);
   } catch { if (!res.headersSent) res.writeHead(404).end('Not found'); else res.destroy(); }
 });
-appServer.listen(8080, '127.0.0.1', async () => {
-  console.log('Media Deck: http://127.0.0.1:8080');
+
+const shutdown = () => appServer.close(() => process.exit(0));
+process.once('SIGINT', shutdown);
+process.once('SIGTERM', shutdown);
+if (process.env.MEDIA_DECK_LAUNCHER === '1') {
+  process.stdin.resume();
+  process.stdin.once('end', shutdown);
+}
+
+appServer.listen(port, '127.0.0.1', () => {
+  console.log(`Media Deck: http://127.0.0.1:${port}`);
 });

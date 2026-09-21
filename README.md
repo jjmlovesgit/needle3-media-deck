@@ -19,8 +19,23 @@ from a pinned official release and verified before the server starts.
 - Optional: browser support for on-device speech recognition for manual
   push-to-talk commands
 
-The current distribution runs from source in the browser and is not packaged
-as a desktop executable.
+The source workflow runs directly in the browser. A portable Windows developer
+build is also available for local packaging and air-gap validation.
+
+## Windows portable build
+
+Build the portable application from the repository root:
+
+```powershell
+.\packaging\scripts\build-portable.ps1
+```
+
+Run `packaging\dist\Needle3MediaDeck-portable\MediaDeck.exe`. The first launch
+asks for the local MP3/MP4 library. The package contains no media, downloader,
+Python, FFmpeg, catalog enrichment cache, extension, or native messaging host.
+It requires Google Chrome on the destination computer. See
+[the packaging guide](packaging/README.md) for the smoke test and current
+on-device speech provisioning limitation.
 
 ## Install and run
 

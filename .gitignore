@@ -45,3 +45,9 @@ Desktop.ini
 /host_manifest.json
 /*_smoke.*
 /modern_compact.*
+
+# Generated Windows packaging output
+/packaging/dist/
+/packaging/bin/
+/packaging/obj/
+/packaging/.tmp/
