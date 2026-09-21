@@ -4,8 +4,8 @@ const enums={
  set_panel:{section:['voice','sidebar'],action:['open','close','show','hide','toggle']},
  play_media:{media_type:['any','mp3','mp4']}
 };
-const keys={play_media:['title','artist','album','media_type'],control_playback:['action'],rewind_10_seconds:[],skip_forward_10_seconds:[],show_mp3_files:[],show_original_videos:[],show_karaoke_files_or_videos:[],show_all_media_files:[],show_graphic_equalizer_panel:[],close_graphic_equalizer_panel:[],show_library_panel:[],hide_media_library_panel:[],close_performance_monitor_panel:[],search_library:['query'],refresh_library:[],set_volume:['volume'],mute_audio:[],unmute_audio:[],increase_volume:[],decrease_volume:[],load_eq_preset:['preset'],set_panel:['section','action']};
-const required={play_media:['title','media_type'],control_playback:['action'],rewind_10_seconds:[],skip_forward_10_seconds:[],show_mp3_files:[],show_original_videos:[],show_karaoke_files_or_videos:[],show_all_media_files:[],show_graphic_equalizer_panel:[],close_graphic_equalizer_panel:[],show_library_panel:[],hide_media_library_panel:[],close_performance_monitor_panel:[],search_library:['query'],refresh_library:[],set_volume:['volume'],mute_audio:[],unmute_audio:[],increase_volume:[],decrease_volume:[],load_eq_preset:['preset'],set_panel:['section','action']};
+const keys={play_media:['title','artist','album','media_type'],control_playback:['action'],rewind_10_seconds:[],skip_forward_10_seconds:[],show_mp3_files:[],show_original_videos:[],show_karaoke_files_or_videos:[],show_all_media_files:[],show_graphic_equalizer_panel:[],close_graphic_equalizer_panel:[],show_library_panel:[],hide_media_library_panel:[],close_performance_monitor_panel:[],search_library:['query'],refresh_library:[],set_volume:['volume'],mute_audio:[],unmute_audio:[],load_eq_preset:['preset'],set_panel:['section','action']};
+const required={play_media:['title','media_type'],control_playback:['action'],rewind_10_seconds:[],skip_forward_10_seconds:[],show_mp3_files:[],show_original_videos:[],show_karaoke_files_or_videos:[],show_all_media_files:[],show_graphic_equalizer_panel:[],close_graphic_equalizer_panel:[],show_library_panel:[],hide_media_library_panel:[],close_performance_monitor_panel:[],search_library:['query'],refresh_library:[],set_volume:['volume'],mute_audio:[],unmute_audio:[],load_eq_preset:['preset'],set_panel:['section','action']};
 const presets=['Flat','Rock','Pop','Jazz','Classical','Vocal','Bass Boost','Dance','Acoustic'];
 const phrases={
  play:['play','resume','continue'],pause:['pause'],stop:['stop'],previous:['previous','back track'],next:['next'],
@@ -13,8 +13,23 @@ const phrases={
  all:['all'],albums:['album','albums'],mp3:['mp3','audio'],original_mp4:['original','mp4','video','videos'],karaoke_mp4:['karaoke']
 };
 const panelActionPhrases={open:['open','show','display','expand'],show:['show','display','open'],close:['close','hide','collapse'],hide:['hide','close'],toggle:['toggle']};
-const volumeToolPhrases={mute_audio:['mute','silence','sound off'],unmute_audio:['unmute','restore sound','sound on'],increase_volume:['louder','increase volume','turn up volume','turn the volume up','volume up'],decrease_volume:['quieter','decrease volume','lower volume','lower the volume','turn down volume','turn the volume down','volume down']};
+const volumeActionPhrases={mute:['mute','silence','sound off'],unmute:['unmute','restore sound','sound on']};
 const mentions=(text,values)=>values.some(value=>(' '+text+' ').includes(' '+value+' '));
+const smallNumbers={zero:0,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,seventeen:17,eighteen:18,nineteen:19};
+const tensNumbers={twenty:20,thirty:30,forty:40,fifty:50,sixty:60,seventy:70,eighty:80,ninety:90};
+const spokenNumbers=text=>{
+ const tokens=text.split(' '),values=new Set();
+ for(let index=0;index<tokens.length;index++){
+  if((tokens[index]==='one'||tokens[index]==='a')&&tokens[index+1]==='hundred'){values.add(100);index++;continue;}
+  if(Object.hasOwn(tensNumbers,tokens[index])){
+   const base=tensNumbers[tokens[index]],unit=smallNumbers[tokens[index+1]];
+   if(unit>0&&unit<10){values.add(base+unit);index++;}else values.add(base);
+   continue;
+  }
+  if(Object.hasOwn(smallNumbers,tokens[index]))values.add(smallNumbers[tokens[index]]);
+ }
+ return values;
+};
 /** Validate every call and its grounding before any call is executed.
  * @param {unknown} calls @param {string} transcript
  */
@@ -30,7 +45,8 @@ export function validateCalls(calls,transcript){
   for(const [key,value] of Object.entries(args)){
    if(key==='volume'){
     if(!Number.isInteger(value)||value<0||value>100)throw new Error('Volume must be an integer from 0 to 100.');
-    if(!mentions(text,['volume','percent','louder','quieter'])||!new RegExp('(^|[^0-9])'+value+'([^0-9]|$)').test(transcript))throw new Error('Volume is not grounded in the typed command; use digits.');
+    const statedAsDigits=new RegExp('(^|[^0-9])'+value+'([^0-9]|$)').test(transcript),statedAsWords=spokenNumbers(text).has(value);
+    if(!mentions(text,['volume','percent','louder','quieter'])||(!statedAsDigits&&!statedAsWords))throw new Error('Volume value was not present in the command.');
    }else{
     if(typeof value!=='string'||value.length>160||(!value.trim()&&key!=='query'))throw new Error('Invalid '+key+'.');
     if(enums[call.name]?.[key]&&!enums[call.name][key].includes(value))throw new Error('Unsupported '+key+'.');
@@ -41,6 +57,8 @@ export function validateCalls(calls,transcript){
     if(key==='preset'&&!presets.includes(value))throw new Error('Unknown EQ preset.');
    }
   }
+  const volumeAction={mute_audio:'mute',unmute_audio:'unmute'}[call.name];
+  if(volumeAction&&!mentions(text,volumeActionPhrases[volumeAction]||[]))throw new Error('Volume adjustment was not grounded in the typed command.');
   if(namedPlayback.has(call.name)&&!mentions(text,phrases.play)&&normalize(args.title)!==text)throw new Error('Playback was not requested.');
   if(namedPlayback.has(call.name)){
    const requestedFormat=mentions(text,['mp3','audio'])?'mp3':mentions(text,['mp4','video','videos','original video','original videos','karaoke'])?'mp4':null;
@@ -62,7 +80,6 @@ export function validateCalls(calls,transcript){
   if(call.name==='close_performance_monitor_panel'&&(!mentions(text,['hide','close'])||!mentions(text,['performance monitor','monitor'])))throw new Error('Closing the performance monitor was not grounded in the typed command.');
   if(call.name==='search_library'&&!mentions(text,['search','find','look for']))throw new Error('Library search was not grounded in the typed command.');
   if(call.name==='refresh_library'&&!mentions(text,['refresh','rescan','reload']))throw new Error('Library refresh was not grounded in the typed command.');
-  if(volumeToolPhrases[call.name]&&!mentions(text,volumeToolPhrases[call.name]))throw new Error('Volume adjustment was not grounded in the typed command.');
   if(call.name==='set_panel'&&(!mentions(text,phrases[args.section]||[])||!mentions(text,panelActionPhrases[args.action]||[])))throw new Error('Panel change was not grounded in the typed command.');
   return {name:call.name,arguments:{...args}};
  });
@@ -92,7 +109,9 @@ export async function executeCalls(calls,api,{allowAmbiguousMedia=false}={}){
   else if(name==='rewind_10_seconds'){await api.control('rewind_10');results.push('Rewind 10 seconds');}
   else if(name==='skip_forward_10_seconds'){await api.control('skip_10');results.push('Forward 10 seconds');}
   else if(name==='set_volume'){api.setVolume(args.volume/100);results.push('Volume '+args.volume+'%');}
-  else if(volumeToolPhrases[name]){const action={mute_audio:'mute',unmute_audio:'unmute',increase_volume:'increase',decrease_volume:'decrease'}[name];api.adjustVolume(action);results.push('Volume '+action);}
+  else if(name==='mute_audio'||name==='unmute_audio'){
+   const action=name==='mute_audio'?'mute':'unmute';api.adjustVolume(action);results.push('Volume '+action);
+  }
   else if(name==='load_eq_preset'){api.setPreset(args.preset);results.push(args.preset+' EQ');}
   else if(['show_mp3_files','show_original_videos','show_karaoke_files_or_videos','show_all_media_files'].includes(name)){
    const media_type={show_mp3_files:'mp3',show_original_videos:'original_mp4',show_karaoke_files_or_videos:'karaoke_mp4',show_all_media_files:'all'}[name];

@@ -132,8 +132,6 @@ try {
         if (!pass) failures.push({ id: sample.id, kind, stage: 'needle', expectedTool, expectedFormat, selectedTool: tool, selectedFormat, selectedTitle, selectedArtist, selectedAlbum, selectedKind: selected?.kind || null, result });
       }
       const volumeCases = [
-        { text: 'Lower the volume', action: 'decrease', tool: 'decrease_volume' },
-        { text: 'Turn the volume up', action: 'increase', tool: 'increase_volume' },
         { text: 'Mute playback', action: 'mute', tool: 'mute_audio' },
         { text: 'Unmute playback', action: 'unmute', tool: 'unmute_audio' }
       ];
@@ -150,12 +148,30 @@ try {
         while (run.disabled && performance.now() - routeStarted < 30000) await new Promise(resolve => setTimeout(resolve, 50));
         const rawCalls = document.querySelector('#validatedCalls')?.textContent || '';
         const selectedTool = /"name"\s*:\s*"([^"]+)"/.exec(rawCalls)?.[1] || '';
+        const selectedAction = /"action"\s*:\s*"([^"]+)"/.exec(rawCalls)?.[1] || '';
         const effect = volumeCase.action === 'mute' ? media.muted : volumeCase.action === 'unmute' ? !media.muted
           : volumeCase.action === 'increase' ? media.volume > before : media.volume < before;
         const result = document.querySelector('#commandResult')?.textContent || '';
-        const pass = selectedTool === volumeCase.tool && effect && result === 'Volume ' + volumeCase.action;
-        volumeRoutes.push({ text: volumeCase.text, expectedTool: volumeCase.tool, selectedTool, effect, pass });
-        if (!pass) failures.push({ kind: 'volume', stage: 'needle', text: volumeCase.text, expectedTool: volumeCase.tool, selectedTool, effect, result });
+        const actionMatches = ['mute_audio','unmute_audio'].includes(volumeCase.tool) || selectedAction === volumeCase.action;
+        const pass = selectedTool === volumeCase.tool && actionMatches && effect && result === 'Volume ' + volumeCase.action;
+        volumeRoutes.push({ text: volumeCase.text, expectedTool: volumeCase.tool, expectedAction: volumeCase.action, selectedTool, selectedAction, effect, pass });
+        if (!pass) failures.push({ kind: 'volume', stage: 'needle', text: volumeCase.text, expectedTool: volumeCase.tool, expectedAction: volumeCase.action, selectedTool, selectedAction, effect, result });
+      }
+      {
+        const text = 't the volume to five percent', slider = document.querySelector('#volume');
+        slider.value = '0.5';slider.dispatchEvent(new Event('input', { bubbles: true }));
+        const input = document.querySelector('#commandInput'), run = document.querySelector('#commandRun');
+        input.value = text;input.dispatchEvent(new Event('input', { bubbles: true }));run.click();
+        const routeStarted = performance.now();
+        while (run.disabled && performance.now() - routeStarted < 30000) await new Promise(resolve => setTimeout(resolve, 50));
+        const rawCalls = document.querySelector('#validatedCalls')?.textContent || '';
+        const selectedTool = /"name"\s*:\s*"([^"]+)"/.exec(rawCalls)?.[1] || '';
+        const selectedAction = /"action"\s*:\s*"([^"]+)"/.exec(rawCalls)?.[1] || '';
+        const selectedVolume = Number(/"volume"\s*:\s*(\d+)/.exec(rawCalls)?.[1]);
+        const effect = Math.abs(media.volume - .05) < .001, result = document.querySelector('#commandResult')?.textContent || '';
+        const pass = selectedTool === 'set_volume' && selectedVolume === 5 && effect && result === 'Volume 5%';
+        volumeRoutes.push({ text, expectedTool: 'set_volume', expectedVolume: 5, selectedTool, selectedVolume, effect, pass });
+        if (!pass) failures.push({ kind: 'volume', stage: 'needle', text, expectedTool: 'set_volume', expectedVolume: 5, selectedTool, selectedVolume, effect, result });
       }
     }
     media.pause(); media.removeAttribute('src'); media.load();

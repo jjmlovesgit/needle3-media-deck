@@ -4,6 +4,11 @@ import {validateCalls,executeCalls} from '../app/scripts/tool-executor.js';
 const call=(name,args)=>({name,arguments:args});
 test('allows grounded volume, preset, and dedicated panel calls',()=>{
  assert.equal(validateCalls([call('set_volume',{volume:35})],'Set volume to 35 percent')[0].arguments.volume,35);
+ assert.equal(validateCalls([call('set_volume',{volume:5})],'Set the volume to five percent')[0].arguments.volume,5);
+ assert.equal(validateCalls([call('set_volume',{volume:35})],'Set volume to thirty-five percent')[0].arguments.volume,35);
+ assert.equal(validateCalls([call('set_volume',{volume:100})],'Set volume to one hundred percent')[0].arguments.volume,100);
+ assert.throws(()=>validateCalls([call('set_volume',{volume:30})],'Set volume to thirty-five percent'),/not present/);
+ assert.throws(()=>validateCalls([call('set_volume',{volume:1})],'Set volume to one hundred percent'),/not present/);
  assert.equal(validateCalls([call('load_eq_preset',{preset:'Rock'})],'Load Rock EQ')[0].arguments.preset,'Rock');
  assert.equal(validateCalls([call('close_graphic_equalizer_panel',{})],'Close the Graphic Equalizer').length,1);
  assert.equal(validateCalls([call('close_performance_monitor_panel',{})],'Close the performance monitor').length,1);
@@ -40,16 +45,16 @@ test('preserves the beginning of an explicitly requested title',()=>{
  assert.deepEqual(validateCalls([call('play_media',{title,artist,media_type:'any'})],transcript),[call('play_media',{title,artist,media_type:'any'})]);
  assert.throws(()=>validateCalls([call('play_media',{title:"Horizon Example Artist's version",media_type:'any'})],transcript),/omitted the beginning/);
 });
-test('validates only grounded nonnumeric volume actions',()=>{
- for(const [text,name] of [['Mute playback','mute_audio'],['Unmute playback','unmute_audio'],['Turn the volume up','increase_volume'],['Lower the volume','decrease_volume']])
-  assert.deepEqual(validateCalls([call(name,{})],text),[call(name,{})]);
- assert.throws(()=>validateCalls([call('decrease_volume',{})],'Mute playback'),/not grounded/);
- assert.throws(()=>validateCalls([call('set_volume',{volume:5})],'Lower volume'),/use digits/);
+test('validates only grounded mute actions',()=>{
+ for(const [text,name,args] of [['Mute playback','mute_audio',{}],['Unmute playback','unmute_audio',{}]])
+  assert.deepEqual(validateCalls([call(name,args)],text),[call(name,args)]);
+ assert.throws(()=>validateCalls([call('set_volume',{volume:5})],'Lower volume'),/not present/);
+ assert.throws(()=>validateCalls([call('set_volume',{volume:5})],'Set volume to six percent'),/not present/);
 });
-test('executes the Needle-selected nonnumeric volume action',async()=>{
+test('executes the Needle-selected mute action',async()=>{
  let action='';
- assert.deepEqual(await executeCalls([call('decrease_volume',{})],{adjustVolume:value=>{action=value}}),['Volume decrease']);
- assert.equal(action,'decrease');
+ assert.deepEqual(await executeCalls([call('mute_audio',{})],{adjustVolume:value=>{action=value}}),['Volume mute']);
+ assert.equal(action,'mute');
 });
 test('requires Needle to preserve an explicitly requested MP3 or MP4 format',()=>{
  const title='Example Artist Example Track';
