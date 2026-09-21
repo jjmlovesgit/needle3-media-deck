@@ -82,6 +82,11 @@ test('drops a format token copied into optional metadata without changing Needle
  await executeCalls(calls,{matchMedia:value=>(request=value,{status:'match',candidates:[{id:'one',title:'Example Signal'}]}),playMedia:()=>{},showCandidates:()=>{}});
  assert.deepEqual(request,{title:'Example Signal',format:'mp3'});
 });
+test('drops a generic media format and file suffix copied into the title',async()=>{
+ const calls=validateCalls([call('play_media',{title:'Example Beacon MP3 file',media_type:'mp3'})],'Play Example Beacon MP3 file');let request;
+ await executeCalls(calls,{matchMedia:value=>(request=value,{status:'match',candidates:[{id:'one',title:'Example Beacon'}]}),playMedia:()=>{},showCandidates:()=>{}});
+ assert.deepEqual(request,{title:'Example Beacon',format:'mp3'});
+});
 test('accepts an exact title-only playback request but rejects an invented title',()=>{
  const title='Example Ensemble Anthology';
  assert.deepEqual(validateCalls([call('play_media',{title,media_type:'any'})],title),[call('play_media',{title,media_type:'any'})]);

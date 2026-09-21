@@ -93,7 +93,7 @@ export async function executeCalls(calls,api,{allowAmbiguousMedia=false}={}){
  try { for(const {name,arguments:args} of calls){
   if(name==='play_media'){
    const {media_type,...mediaRequest}=args,format=media_type==='any'?null:media_type;
-   const suffix={mp3:/\s+(?:mp3|audio)\s*$/i,mp4:/\s+(?:mp4|original\s+videos?|karaoke(?:\s+videos?)?|videos?)\s*$/i}[media_type];
+   const suffix={mp3:/\s+(?:mp3|audio)(?:\s+files?)?\s*$/i,mp4:/\s+(?:mp4|original\s+videos?|karaoke(?:\s+videos?)?|videos?)(?:\s+files?)?\s*$/i}[media_type];
    if(suffix)for(const key of ['title','artist','album'])if(mediaRequest[key]){
     const value=mediaRequest[key].replace(suffix,'').trim();if(value)mediaRequest[key]=value;
    }
