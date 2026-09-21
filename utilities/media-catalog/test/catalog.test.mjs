@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { applyMatchDecision, applyRecordingMetadata, classifyCatalogMedia, decideCandidate, enrichCatalog, inferLocalMetadata, markEnrichmentEligibility, matchCatalog, musicBrainzQuery, MusicBrainzClient, prepareLookupMetadata, probeDurationMs, rankMusicBrainzCandidates, safePathSegment, scanLibrary, stageCatalog, stagedRelativePath } from '../lib.mjs';
+import { applyManualMetadata, applyMatchDecision, applyRecordingMetadata, classifyCatalogMedia, decideCandidate, enrichCatalog, inferLocalMetadata, markEnrichmentEligibility, matchCatalog, musicBrainzQuery, MusicBrainzClient, prepareLookupMetadata, probeDurationMs, rankMusicBrainzCandidates, safePathSegment, scanLibrary, stageCatalog, stagedRelativePath, validateManualMetadata, writeJsonAtomic } from '../lib.mjs';
+import { startCatalogEditor } from '../editor-server.mjs';
 
 test('local inference produces uniform metadata without media-specific rules', () => {
   assert.deepEqual(inferLocalMetadata('Example Artist - Example Track Alpha_20260917_114941_token/source.mp4'),
@@ -83,6 +84,54 @@ test('metadata lookup preserves a locally probed duration when the provider omit
   const recording = { ...recordings[0], length: null };
   const enriched = applyRecordingMetadata(item, recording);
   assert.equal(enriched.durationMs, 198000); assert.equal(enriched.provenance.durationMs, 'local-probe');
+});
+
+test('manual song metadata is validated and protected from later enrichment', () => {
+  const item = { id: 'one', relativePath: 'Example.mp4', extension: 'mp4', kind: 'original_mp4', ...local,
+    track: null, year: null, aliases: [], provenance: {} };
+  const input = { title: 'Reviewed Title', artist: 'Reviewed Artist', album: '', track: 2, year: 2024,
+    aliases: ['Voice Name', 'voice name', 'Reviewed Title', ''], kind: 'karaoke_mp4' };
+  const reviewed = applyManualMetadata(item, input, '2026-09-20T12:00:00.000Z');
+  assert.equal(reviewed.title, 'Reviewed Title'); assert.equal(reviewed.kind, 'karaoke_mp4');
+  assert.deepEqual(reviewed.aliases, ['Voice Name']); assert(reviewed.manualFields.includes('title'));
+  const enriched = applyRecordingMetadata(reviewed, recordings[0]);
+  assert.equal(enriched.title, 'Reviewed Title'); assert.equal(enriched.artist, 'Reviewed Artist');
+  assert.equal(enriched.year, 2024); assert.equal(enriched.provenance.title, 'manual');
+});
+
+test('manual metadata rejects missing titles, invalid ranges, unknown fields, and format changes', () => {
+  const item = { relativePath: 'Example.mp3', extension: 'mp3', kind: 'mp3' };
+  const valid = { title: 'Example', artist: '', album: '', track: null, year: null, aliases: [], kind: 'mp3' };
+  assert.equal(validateManualMetadata(item, valid).title, 'Example');
+  assert.throws(() => validateManualMetadata(item, { ...valid, title: '' }), /required/);
+  assert.throws(() => validateManualMetadata(item, { ...valid, year: 999 }), /Year/);
+  assert.throws(() => validateManualMetadata(item, { ...valid, kind: 'original_mp4' }), /inconsistent/);
+  assert.throws(() => validateManualMetadata(item, { ...valid, extra: true }), /every editable/);
+});
+
+test('atomic catalog writes replace complete JSON without leaving temporary files', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'metadata-editor-')), filename = path.join(root, 'catalog.json');
+  await writeFile(filename, '{"old":true}\n'); await writeJsonAtomic(filename, { schemaVersion: 1, items: [] });
+  assert.deepEqual(JSON.parse(await readFile(filename, 'utf8')), { schemaVersion: 1, items: [] });
+  assert.deepEqual((await (await import('node:fs/promises')).readdir(root)).sort(), ['catalog.json']);
+});
+
+test('local editor saves one item and rejects a stale browser revision', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'metadata-editor-server-')), filename = path.join(root, 'catalog.json');
+  const item = { id: 'example-id', relativePath: 'Example.mp3', extension: 'mp3', kind: 'mp3', title: 'Example',
+    artist: '', album: '', track: null, year: null, aliases: [], durationMs: 120000 };
+  await writeFile(filename, JSON.stringify({ schemaVersion: 1, items: [item] }));
+  const server = await startCatalogEditor({ catalogPath: filename, port: 0 });
+  try {
+    const base = `http://127.0.0.1:${server.address().port}`, loaded = await fetch(base + '/api/catalog');
+    const etag = loaded.headers.get('etag'); assert.equal((await loaded.json()).items[0].title, 'Example');
+    const body = { title: 'Reviewed Example', artist: 'Example Artist', album: '', track: null, year: null, aliases: ['Spoken Example'], kind: 'mp3' };
+    const saved = await fetch(base + '/api/items/example-id', { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'If-Match': etag }, body: JSON.stringify(body) });
+    assert.equal(saved.status, 200); assert.equal((await saved.json()).item.title, 'Reviewed Example');
+    const stale = await fetch(base + '/api/items/example-id', { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'If-Match': etag }, body: JSON.stringify(body) });
+    assert.equal(stale.status, 409);
+    assert.equal(JSON.parse(await readFile(filename, 'utf8')).items[0].artist, 'Example Artist');
+  } finally { await new Promise(resolve => server.close(resolve)); }
 });
 
 test('duplicate recording IDs for the same title and artist do not create false ambiguity', () => {

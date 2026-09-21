@@ -39,6 +39,32 @@ Lookup normalization removes generic promotional suffixes such as “official vi
 
 Each file has uniform `title`, `artist`, `album`, `track`, `year`, `durationMs`, `musicBrainzRecordingId`, `aliases`, `status`, `confidence`, and `provenance` fields. The catalog also preserves the source-relative path and raw local inference for auditing.
 
+## Review and edit individual songs
+
+Run the dependency-free local editor against the staged demo catalog:
+
+```powershell
+cd utilities\media-catalog
+npm run edit
+```
+
+Then open <http://127.0.0.1:8090/>. The default catalog is the repository's
+`demo/catalog.json`; choose another catalog or port when needed:
+
+```powershell
+node catalog.mjs edit --catalog "C:\path\to\catalog.json" --port 8091
+```
+
+Each song has an **Edit** action for title, artist, album, track number, year,
+aliases, and MP4 classification. MP3 files remain MP3; MP4 files may be marked
+as original or karaoke video. File paths, stable IDs, duration, and media files
+are read-only. Saves replace the JSON catalog atomically and reject a stale
+browser edit if the file changed on disk. Fields reviewed manually are recorded
+in `manualFields` and protected from later MusicBrainz enrichment.
+
+Stop the editor with **Ctrl+C**. It binds only to `127.0.0.1`, loads no remote
+assets, and makes no network requests.
+
 ## Build an isolated demo library
 
 After reviewing the enriched catalog, copy only its `enriched` records into a new directory:

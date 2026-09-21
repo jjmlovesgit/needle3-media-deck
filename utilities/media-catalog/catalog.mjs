@@ -7,7 +7,7 @@ import { enrichCatalog, markEnrichmentEligibility, matchCatalog, musicBrainzQuer
 const directory = path.dirname(fileURLToPath(import.meta.url)), values = process.argv.slice(2), command = values.shift();
 const option = (name, fallback) => { const index = values.indexOf('--' + name); return index >= 0 ? values[index + 1] : fallback; };
 const has = name => values.includes('--' + name);
-const usage = () => console.log('Usage:\n  node catalog.mjs scan --source <media-directory> [--output <catalog.json>]\n  node catalog.mjs plan [--catalog <catalog.json>] [--output <plan.json>]\n  node catalog.mjs match [--catalog <local.json>] [--output <matches.json>] [--limit <count>] [--require-artist] (--allow-network | --offline)\n  node catalog.mjs enrich [--catalog <matches.json>] [--output <enriched.json>] [--limit <count>] (--allow-network | --offline)\n  node catalog.mjs stage [--catalog <enriched.json>] [--destination <directory>]');
+const usage = () => console.log('Usage:\n  node catalog.mjs scan --source <media-directory> [--output <catalog.json>]\n  node catalog.mjs plan [--catalog <catalog.json>] [--output <plan.json>]\n  node catalog.mjs match [--catalog <local.json>] [--output <matches.json>] [--limit <count>] [--require-artist] (--allow-network | --offline)\n  node catalog.mjs enrich [--catalog <matches.json>] [--output <enriched.json>] [--limit <count>] (--allow-network | --offline)\n  node catalog.mjs stage [--catalog <enriched.json>] [--destination <directory>]\n  node catalog.mjs edit [--catalog <catalog.json>] [--port <port>]');
 const checkedLimit = () => {
   const raw = option('limit', 'Infinity'), limit = raw === 'Infinity' ? Infinity : Number(raw);
   if ((!Number.isInteger(limit) || limit < 1) && limit !== Infinity) throw new Error('--limit must be a positive integer.');
@@ -54,5 +54,11 @@ try {
     const destination = path.resolve(option('destination', path.join(directory, 'work', 'demo-library')));
     const catalog = JSON.parse(await readFile(input, 'utf8')), manifest = await stageCatalog(catalog, destination);
     console.log(JSON.stringify({ destination, files: manifest.files, manifest: path.join(destination, 'catalog.json') }, null, 2));
+  } else if (command === 'edit') {
+    const input = path.resolve(option('catalog', path.join(directory, '..', '..', 'demo', 'catalog.json')));
+    const port = Number(option('port', '8090'));
+    if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('--port must be an integer from 1024 to 65535.');
+    const { startCatalogEditor } = await import('./editor-server.mjs');
+    await startCatalogEditor({ catalogPath: input, port });
   } else { usage(); process.exitCode = command ? 1 : 0; }
 } catch (error) { console.error(error.message); process.exitCode = 1; }

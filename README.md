@@ -105,8 +105,10 @@ The generated report is written to ignored `demo/catalog-regression.json`.
 
 `utilities/media-catalog` is a separate command-line utility for scanning a
 source library, reviewing proposed metadata queries, optionally enriching
-individual songs through MusicBrainz, and staging a clean demo library. It is
-not imported by the SPA and never changes the source library. See
+individual songs through MusicBrainz, staging a clean demo library, and editing
+song-level catalog metadata in a loopback-only browser UI. Run `npm run edit`
+from that directory to edit the default `demo/catalog.json`. It is not imported
+by the SPA and never changes the source media files. See
 [its README](utilities/media-catalog/README.md).
 
 ## Repository layout

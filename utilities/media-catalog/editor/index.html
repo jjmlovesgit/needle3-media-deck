@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Media Catalog Editor</title><link rel="stylesheet" href="./editor.css"></head>
+<body><main>
+  <header><div><p>NEEDLE 3 MEDIA DECK</p><h1>Media Catalog Editor</h1></div><div id="catalogState">Loading catalog…</div></header>
+  <section class="workspace">
+    <aside><label class="search">Search songs<input id="search" type="search" placeholder="Title, artist, album, or path"></label><div id="counts"></div><div id="items" class="items"></div></aside>
+    <form id="editor" hidden>
+      <div class="form-head"><div><span id="badge"></span><h2 id="heading">Edit song</h2></div><button id="save" type="submit">Save metadata</button></div>
+      <p id="message" role="status" aria-live="polite"></p>
+      <div class="fields">
+        <label class="wide">Title <strong>required</strong><input id="title" maxlength="200" required></label>
+        <label>Artist<input id="artist" maxlength="200"></label><label>Album<input id="album" maxlength="200"></label>
+        <label>Media type<select id="kind"><option value="mp3">MP3</option><option value="original_mp4">Original MP4</option><option value="karaoke_mp4">Karaoke MP4</option></select></label>
+        <label>Track number<input id="track" type="number" min="1" max="999"></label><label>Year<input id="year" type="number" min="1000" max="9999"></label>
+        <label class="wide">Aliases <small>One alternate spoken name per line</small><textarea id="aliases" rows="5" maxlength="4020"></textarea></label>
+      </div>
+      <dl><div><dt>File</dt><dd id="path"></dd></div><div><dt>Duration</dt><dd id="duration"></dd></div><div><dt>Metadata source</dt><dd id="source"></dd></div><div><dt>Last manual edit</dt><dd id="edited"></dd></div></dl>
+    </form>
+    <section id="empty" class="empty"><h2>Select a song</h2><p>Choose Edit beside a catalog item. Media files, paths, durations, and stable IDs remain read-only.</p></section>
+  </section>
+</main><script type="module" src="./editor.js"></script></body></html>

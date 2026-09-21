@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { constants } from 'node:fs';
-import { copyFile, mkdir, readFile, readdir, realpath, stat, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, readdir, realpath, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
@@ -143,16 +143,65 @@ export function applyMatchDecision(item, decision, ranked) {
 
 export function applyRecordingMetadata(item, recording) {
   const artist = artistCredit(recording), release = bestRelease(recording);
+  const previousProvenance = item.provenance || {};
   const selected = { title: recording.title || item.title, artist, album: release?.title || '',
     year: release?.date ? Number(String(release.date).slice(0, 4)) || null : null,
     durationMs: Number(recording.length) || item.durationMs || null };
   const aliases = [...new Set([item.title, ...(item.aliases || [])].filter(value => value && normalize(value) !== normalize(selected.title)))];
-  return { ...item, title: selected.title, artist: selected.artist || item.artist, album: selected.album || item.album,
-    year: selected.year, durationMs: selected.durationMs, musicBrainzRecordingId: recording.id,
-    aliases, status: 'enriched', provenance: { title: 'musicbrainz',
-      artist: selected.artist ? 'musicbrainz' : item.provenance.artist, album: selected.album ? 'musicbrainz' : item.provenance.album,
-      track: item.provenance.track, year: selected.year ? 'musicbrainz' : null,
-      durationMs: Number(recording.length) ? 'musicbrainz' : item.provenance.durationMs || 'local-probe' } };
+  const manual = new Set(item.manualFields || []), value = (field, proposed) => manual.has(field) ? item[field] : proposed;
+  return { ...item, title: value('title', selected.title), artist: value('artist', selected.artist || item.artist),
+    album: value('album', selected.album || item.album), year: value('year', selected.year),
+    durationMs: selected.durationMs, musicBrainzRecordingId: recording.id,
+    aliases: value('aliases', aliases), status: 'enriched', provenance: { ...previousProvenance,
+      title: manual.has('title') ? 'manual' : 'musicbrainz',
+      artist: manual.has('artist') ? 'manual' : selected.artist ? 'musicbrainz' : previousProvenance.artist,
+      album: manual.has('album') ? 'manual' : selected.album ? 'musicbrainz' : previousProvenance.album,
+      track: manual.has('track') ? 'manual' : previousProvenance.track,
+      year: manual.has('year') ? 'manual' : selected.year ? 'musicbrainz' : null,
+      durationMs: Number(recording.length) ? 'musicbrainz' : previousProvenance.durationMs || 'local-probe' } };
+}
+
+const editableText = (value, field, required = false) => {
+  if (typeof value !== 'string') throw new Error(`${field} must be text.`);
+  const cleaned = value.normalize('NFC').replace(/\s+/g, ' ').trim();
+  if (required && !cleaned) throw new Error(`${field} is required.`);
+  if (cleaned.length > 200) throw new Error(`${field} must be 200 characters or fewer.`);
+  return cleaned;
+};
+
+/** Validate the complete editable song metadata submitted by the local catalog editor. */
+export function validateManualMetadata(item, input, now = new Date()) {
+  if (!item || !input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid metadata update.');
+  const allowed = ['title','artist','album','track','year','aliases','kind'];
+  if (Object.keys(input).some(key => !allowed.includes(key)) || allowed.some(key => !Object.hasOwn(input, key)))
+    throw new Error('Submit every editable metadata field and no unknown fields.');
+  const numberOrNull = (value, field, minimum, maximum) => {
+    if (value === null || value === '') return null;
+    if (!Number.isInteger(value) || value < minimum || value > maximum) throw new Error(`${field} must be an integer from ${minimum} to ${maximum}, or blank.`);
+    return value;
+  };
+  if (!Array.isArray(input.aliases) || input.aliases.length > 20) throw new Error('Aliases must be an array of at most 20 values.');
+  const title = editableText(input.title, 'Title', true), seen = new Set([normalize(title)]), aliases = [];
+  for (const alias of input.aliases) {
+    const cleaned = editableText(alias, 'Alias'); const key = normalize(cleaned);
+    if (cleaned && !seen.has(key)) { seen.add(key); aliases.push(cleaned); }
+  }
+  const extension = String(item.extension || path.extname(item.relativePath || '').slice(1)).toLowerCase();
+  const kinds = extension === 'mp3' ? ['mp3'] : extension === 'mp4' ? ['original_mp4','karaoke_mp4'] : [];
+  if (!kinds.includes(input.kind)) throw new Error(`Media type is inconsistent with the .${extension || 'unknown'} file.`);
+  return { title, artist: editableText(input.artist, 'Artist'), album: editableText(input.album, 'Album'),
+    track: numberOrNull(input.track, 'Track', 1, 999), year: numberOrNull(input.year, 'Year', 1000, now.getUTCFullYear() + 1),
+    aliases, kind: input.kind };
+}
+
+/** Apply reviewed values without changing file identity or system-managed media facts. */
+export function applyManualMetadata(item, input, editedAt = new Date().toISOString()) {
+  const metadata = validateManualMetadata(item, input, new Date(editedAt));
+  const manualFields = Object.keys(metadata).filter(field => JSON.stringify(item[field] ?? null) !== JSON.stringify(metadata[field] ?? null));
+  const provenance = { ...(item.provenance || {}) };
+  for (const field of manualFields) provenance[field] = 'manual';
+  return { ...item, ...metadata, manualFields: [...new Set([...(item.manualFields || []), ...manualFields])],
+    manuallyEditedAt: editedAt, provenance };
 }
 
 export function prepareLookupMetadata(item) {
@@ -315,4 +364,17 @@ export async function stageCatalog(catalog, destination) {
 export async function writeJson(filename, value) {
   await mkdir(path.dirname(filename), { recursive: true });
   await writeFile(filename, JSON.stringify(value, null, 2) + '\n', 'utf8');
+}
+
+/** Replace a catalog in the same directory so readers see either the old or complete new JSON. */
+export async function writeJsonAtomic(filename, value) {
+  await mkdir(path.dirname(filename), { recursive: true });
+  const temporary = path.join(path.dirname(filename), `.${path.basename(filename)}.${process.pid}.${Date.now()}.tmp`);
+  try {
+    await writeFile(temporary, JSON.stringify(value, null, 2) + '\n', { encoding: 'utf8', flag: 'wx' });
+    await rename(temporary, filename);
+  } catch (error) {
+    await unlink(temporary).catch(() => {});
+    throw error;
+  }
 }
