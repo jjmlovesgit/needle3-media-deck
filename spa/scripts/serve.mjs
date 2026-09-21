@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MediaSource, byteRange, within } from './media-source.mjs';
+import { createCatalogItemApi } from '../../utilities/media-catalog/editor-server.mjs';
 await verifyNeedleAssets();
 const root = path.resolve(import.meta.dirname, '../app');
 const configUrl = new URL('../config/media-sources.json', import.meta.url);
@@ -11,17 +12,22 @@ const config = JSON.parse(await readFile(configUrl, 'utf8'));
 const configuredSource = config.sources[0];
 const media = new MediaSource({ ...configuredSource,
   path: path.resolve(path.dirname(fileURLToPath(configUrl)), configuredSource.path) });
+const catalogItemApi = createCatalogItemApi(path.join(media.source.path, 'catalog.json'));
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.mjs': 'text/javascript', '.wasm': 'application/wasm', '.json': 'application/json' };
-http.createServer(async (req, res) => {
+const appServer = http.createServer(async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   // Restrict loopback host and browser origin; no cross-origin library access.
   if (!['127.0.0.1:8080', 'localhost:8080'].includes(req.headers.host) ||
       (req.headers.origin && !['http://127.0.0.1:8080', 'http://localhost:8080'].includes(req.headers.origin)) ||
       req.headers['sec-fetch-site'] === 'cross-site') { res.writeHead(403).end(); return; }
-  if (!['GET', 'HEAD'].includes(req.method)) { res.writeHead(405, { Allow: 'GET, HEAD' }).end(); return; }
   try {
     const url = new URL(req.url, 'http://localhost');
+    if (url.pathname.startsWith('/api/catalog/items/')) {
+      const id = decodeURIComponent(url.pathname.slice('/api/catalog/items/'.length));
+      await catalogItemApi(req, res, id); return;
+    }
+    if (!['GET', 'HEAD'].includes(req.method)) { res.writeHead(405, { Allow: 'GET, HEAD' }).end(); return; }
     if (url.pathname === '/api/library') {
       try {
         const manifest = await media.scan(url.searchParams.get('refresh') === '1');
@@ -53,4 +59,7 @@ http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream' });
     res.end(req.method === 'HEAD' ? undefined : body);
   } catch { if (!res.headersSent) res.writeHead(404).end('Not found'); else res.destroy(); }
-}).listen(8080, '127.0.0.1', () => console.log('Media Deck: http://127.0.0.1:8080'));
+});
+appServer.listen(8080, '127.0.0.1', async () => {
+  console.log('Media Deck: http://127.0.0.1:8080');
+});

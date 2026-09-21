@@ -35,6 +35,23 @@ const notice=document.createElement('p');notice.id='libraryNotice';notice.setAtt
 $('libraryList').before(notice);
 const kindLabel={mp3:'MP3',original_mp4:'ORIGINAL VIDEO',karaoke_mp4:'KARAOKE'};
 const formatTime=value=>{const seconds=Math.floor(Number.isFinite(value)?value:0);return String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');};
+let metadataCatalogId='',metadataRevision='';
+
+async function openMetadataEditor(item){
+ const message=$('metadataMessage');message.className='';message.textContent='Loading catalog metadata…';
+ try{
+  const response=await fetch('/api/catalog/items/'+encodeURIComponent(item.catalogId));
+  const data=await response.json();if(!response.ok)throw new Error(data.error||'Metadata is unavailable.');
+  const catalogItem=data.item;metadataCatalogId=catalogItem.id;metadataRevision=response.headers.get('ETag')||'';
+  $('metadataHeading').textContent='Edit '+catalogItem.title;
+  for(const field of ['Title','Artist','Album'])$('metadata'+field).value=catalogItem[field.toLowerCase()]||'';
+  $('metadataKind').value=catalogItem.kind;$('metadataTrack').value=catalogItem.track??'';$('metadataYear').value=catalogItem.year??'';
+  $('metadataAliases').value=(catalogItem.aliases||[]).join('\n');$('metadataPath').textContent=catalogItem.relativePath;
+  const extension=String(catalogItem.extension||catalogItem.relativePath.split('.').pop()).toLowerCase();
+  for(const option of $('metadataKind').options)option.disabled=extension==='mp3'?option.value!=='mp3':option.value==='mp3';
+  message.textContent='Changes update catalog.json; the media file remains unchanged.';$('metadataDialog').showModal();$('metadataTitle').focus();
+ }catch(error){notice.textContent=error.message;}
+}
 
 function renderLibrary(){
  const items=library.list(),albums=groupAlbums(items),list=$('libraryList');
@@ -50,11 +67,15 @@ function renderLibrary(){
  list.replaceChildren();
  const visible=ui.visible(items);
  function row(title,meta,badge,action,id,album=false){
+  const entry=document.createElement('div');entry.className='library-entry';
   const button=document.createElement('button');button.type='button';button.className='library-item'+(album?' library-album':'');
   if(id){button.dataset.id=id;button.classList.toggle('selected',player.state.mediaId===id);}
   const copy=document.createElement('div'),name=document.createElement('div'),details=document.createElement('div'),tag=document.createElement('span');
   name.className='library-title';name.textContent=title;details.className='library-meta';details.textContent=meta;tag.className='library-badge';tag.textContent=badge;
-  copy.append(name,details);button.append(copy,tag);button.onclick=action;list.append(button);
+  copy.append(name,details);button.append(copy,tag);button.onclick=action;entry.append(button);
+  const item=id?library.get(id):null;
+  if(item?.catalogId){const edit=document.createElement('button');edit.type='button';edit.className='library-edit';edit.textContent='EDIT';edit.setAttribute('aria-label','Edit metadata for '+item.title);edit.onclick=()=>{void openMetadataEditor(item);};entry.append(edit);}
+  list.append(entry);
  }
  if(ui.filter==='albums'&&!ui.albumId){
   for(const album of groupAlbums(visible))row(album.title,album.tracks.length+' tracks','ALBUM',()=>{ui.albumId=album.id;renderLibrary();},null,true);
@@ -98,6 +119,18 @@ $('files').onchange=()=>{
  const result=library.add($('files').files||[]);$('files').value='';
  notice.textContent=result.added.length+' local files added'+(result.rejected?' · '+result.rejected+' unsupported files skipped':'');
  if(result.added[0])void selectMedia(result.added[0].id);renderLibrary();
+};
+$('metadataClose').onclick=$('metadataCancel').onclick=()=>$('metadataDialog').close();
+$('metadataForm').onsubmit=async event=>{
+ event.preventDefault();const button=$('metadataSave'),message=$('metadataMessage'),nullable=id=>$(id).value===''?null:Number($(id).value);
+ const update={title:$('metadataTitle').value,artist:$('metadataArtist').value,album:$('metadataAlbum').value,kind:$('metadataKind').value,
+  track:nullable('metadataTrack'),year:nullable('metadataYear'),aliases:$('metadataAliases').value.split(/\r?\n/)};
+ button.disabled=true;message.className='';message.textContent='Saving metadata…';
+ try{
+  const response=await fetch('/api/catalog/items/'+encodeURIComponent(metadataCatalogId),{method:'PATCH',headers:{'Content-Type':'application/json','If-Match':metadataRevision},body:JSON.stringify(update)});
+  const data=await response.json();if(!response.ok)throw new Error(data.error||'Metadata save failed.');
+  $('metadataDialog').close();await refreshLibrary(true);if(player.state.mediaId)await selectMedia(player.state.mediaId);notice.textContent='Metadata saved for '+data.item.title+'.';
+ }catch(error){message.textContent=error.message;message.className='error';}finally{button.disabled=false;}
 };
 $('play').onclick=()=>player.toggle();$('stop').onclick=()=>player.stop();
 $('back').onclick=()=>player.skip(-10);$('forward').onclick=()=>player.skip(10);

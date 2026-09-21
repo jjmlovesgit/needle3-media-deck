@@ -22,10 +22,29 @@ const requestBody = request => new Promise((resolve, reject) => {
   request.on('error', reject);
 });
 
+/** Shared bounded catalog API used by both the standalone utility and Media Deck. */
+export function createCatalogItemApi(catalogPath) {
+  const filename = path.resolve(catalogPath);
+  return async (request, response, id) => {
+    const raw = await readFile(filename, 'utf8'), currentRevision = revision(raw), catalog = JSON.parse(raw);
+    const index = catalog.items.findIndex(item => item.id === id);
+    if (index < 0) { json(response, 404, { error: 'Catalog item was not found.' }); return; }
+    if (request.method === 'GET') { json(response, 200, { item: catalog.items[index] }, { ETag: currentRevision }); return; }
+    if (request.method !== 'PATCH') { response.writeHead(405, { Allow: 'GET, PATCH' }).end(); return; }
+    if (request.headers['if-match'] !== currentRevision) { json(response, 409, { error: 'The catalog changed on disk. Reload before saving.' }, { ETag: currentRevision }); return; }
+    const editedAt = new Date().toISOString(), update = await requestBody(request);
+    catalog.items[index] = applyManualMetadata(catalog.items[index], update, editedAt); catalog.editedAt = editedAt;
+    await writeJsonAtomic(filename, catalog);
+    const saved = await readFile(filename, 'utf8');
+    json(response, 200, { item: catalog.items[index], editedAt }, { ETag: revision(saved) });
+  };
+}
+
 export async function startCatalogEditor({ catalogPath, port = 8090 } = {}) {
   const filename = path.resolve(catalogPath || 'catalog.json');
   const initial = JSON.parse(await readFile(filename, 'utf8'));
   if (!Array.isArray(initial.items)) throw new Error('Catalog must contain an items array.');
+  const catalogItemApi = createCatalogItemApi(filename);
   let allowedHosts = new Set();
   const server = createServer(async (request, response) => {
     response.setHeader('Cache-Control', 'no-store'); response.setHeader('X-Content-Type-Options', 'nosniff');
@@ -44,17 +63,9 @@ export async function startCatalogEditor({ catalogPath, port = 8090 } = {}) {
         const raw = await readFile(filename, 'utf8'), catalog = JSON.parse(raw);
         json(response, 200, { filename: path.basename(filename), generatedAt: catalog.generatedAt || null, editedAt: catalog.editedAt || null, items: catalog.items }, { ETag: revision(raw) }); return;
       }
-      if (request.method === 'PATCH' && url.pathname.startsWith('/api/items/')) {
+      if (['GET','PATCH'].includes(request.method) && url.pathname.startsWith('/api/items/')) {
         const id = decodeURIComponent(url.pathname.slice('/api/items/'.length));
-        const raw = await readFile(filename, 'utf8'), currentRevision = revision(raw);
-        if (request.headers['if-match'] !== currentRevision) { json(response, 409, { error: 'The catalog changed on disk. Reload before saving.' }, { ETag: currentRevision }); return; }
-        const catalog = JSON.parse(raw), index = catalog.items.findIndex(item => item.id === id);
-        if (index < 0) { json(response, 404, { error: 'Catalog item was not found.' }); return; }
-        const editedAt = new Date().toISOString(), update = await requestBody(request);
-        catalog.items[index] = applyManualMetadata(catalog.items[index], update, editedAt); catalog.editedAt = editedAt;
-        await writeJsonAtomic(filename, catalog);
-        const saved = await readFile(filename, 'utf8');
-        json(response, 200, { item: catalog.items[index], editedAt }, { ETag: revision(saved) }); return;
+        await catalogItemApi(request, response, id); return;
       }
       response.writeHead(404).end('Not found');
     } catch (error) { json(response, 400, { error: error.message || 'Catalog update failed.' }); }

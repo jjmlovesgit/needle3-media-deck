@@ -125,6 +125,8 @@ test('local editor saves one item and rejects a stale browser revision', async (
   try {
     const base = `http://127.0.0.1:${server.address().port}`, loaded = await fetch(base + '/api/catalog');
     const etag = loaded.headers.get('etag'); assert.equal((await loaded.json()).items[0].title, 'Example');
+    const individual = await fetch(base + '/api/items/example-id');
+    assert.equal((await individual.json()).item.relativePath, 'Example.mp3'); assert.equal(individual.headers.get('etag'), etag);
     const body = { title: 'Reviewed Example', artist: 'Example Artist', album: '', track: null, year: null, aliases: ['Spoken Example'], kind: 'mp3' };
     const saved = await fetch(base + '/api/items/example-id', { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'If-Match': etag }, body: JSON.stringify(body) });
     assert.equal(saved.status, 200); assert.equal((await saved.json()).item.title, 'Reviewed Example');

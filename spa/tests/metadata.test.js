@@ -42,6 +42,11 @@ test('MP4 matching includes both original and karaoke video kinds', () => {
   const result=matchMedia(videoItems,{title:'Example Video',format:'mp4'});
   assert.deepEqual(result.candidates.map(item=>item.id),['original','karaoke']);
 });
+test('reviewed aliases participate in exact voice matching and library search', () => {
+  const media=[{id:'alias',title:'Canonical Example Title',artist:'Example Artist',album:'',aliases:['Spoken Shortcut'],kind:'mp3'}];
+  assert.equal(matchMedia(media,{title:'Spoken Shortcut'}).candidates[0].id,'alias');
+  const ui=new UIState();ui.setQuery('spoken shortcut');assert.equal(ui.visible(media)[0].id,'alias');
+});
 test('structured artist-title input resolves a redundant title-as-artist argument generically', () => {
   const media=[{id:'structured',title:'Twilight Beacon',artist:'Night Ensemble',album:'Example Album',kind:'mp3'}];
   assert.equal(matchMedia(media,{title:'Night Ensemble - Twilight Beacon',artist:'Twilight Beacon'}).candidates[0].id,'structured');

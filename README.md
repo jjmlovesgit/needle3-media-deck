@@ -55,6 +55,12 @@ adding them to the indexed library. Browser security prevents a normal web page
 from silently scanning arbitrary folders, so an indexed library requires the
 local server and configured directory.
 
+Catalog-backed library rows include **Edit**. The in-app song editor updates
+title, artist, album, track, year, aliases, and MP4 classification in
+`demo/catalog.json`; it never renames or rewrites the media file. Saved aliases
+participate in voice matching and library search. Manually reviewed fields are
+protected from later MusicBrainz enrichment.
+
 ## Playback and commands
 
 The responsive Performance Monitor uses one persistent media element for both

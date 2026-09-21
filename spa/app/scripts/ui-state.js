@@ -13,7 +13,7 @@ export class UIState {
     const query = normalizeMediaText(this.query);
     return items.filter(item => (this.filter === 'all' || (this.filter === 'albums' ? Boolean(item.album) : item.kind === this.filter))
       && (!this.albumId || item.albumKey === this.albumId)
-      && normalizeMediaText([item.title,item.artist,item.album].filter(Boolean).join(' ')).includes(query))
+      && normalizeMediaText([item.title,item.artist,item.album,...(Array.isArray(item.aliases)?item.aliases:[])].filter(Boolean).join(' ')).includes(query))
       .sort((a,b) => this.albumId ? (a.track ?? Infinity) - (b.track ?? Infinity) || a.title.localeCompare(b.title)
         : this.sort === 'artist' ? (a.artist || '').localeCompare(b.artist || '') || a.title.localeCompare(b.title)
         : this.sort === 'newest' ? (b.modified || 0) - (a.modified || 0) || a.title.localeCompare(b.title)

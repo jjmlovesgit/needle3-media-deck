@@ -71,6 +71,7 @@ export class MediaSource {
           const relativePath = path.relative(root, canonical);
           const inferred = inferMetadata(relativePath), catalogItem = catalogMetadata.get(manifestKey(relativePath));
           const metadata = catalogItem ? { ...inferred,
+            catalogId: typeof catalogItem.id === 'string' ? catalogItem.id : null,
             title: typeof catalogItem.title === 'string' && catalogItem.title.trim() ? catalogItem.title.trim() : inferred.title,
             artist: typeof catalogItem.artist === 'string' ? catalogItem.artist.trim() : inferred.artist,
             album: typeof catalogItem.album === 'string' ? catalogItem.album.trim() : inferred.album,
