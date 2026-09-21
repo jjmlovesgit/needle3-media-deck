@@ -64,6 +64,11 @@ test('requires Needle to preserve an explicitly requested MP3 or MP4 format',()=
  assert.throws(()=>validateCalls([call('play_media',{title,media_type:'mp3'})],'Play Example Artist Example Track video'),/requested media format/);
  assert.throws(()=>validateCalls([call('play_media',{title,media_type:'any'})],'Play Example Artist Example Track MP3'),/requested media format/);
 });
+test('allows Needle to choose a format for a format-neutral playback request',()=>{
+ const transcript='Play Example Artist Example Track';
+ assert.deepEqual(validateCalls([call('play_media',{title:'Example Artist Example Track',media_type:'mp3'})],transcript),[call('play_media',{title:'Example Artist Example Track',media_type:'mp3'})]);
+ assert.deepEqual(validateCalls([call('play_media',{title:'Example Artist Example Track',media_type:'mp4'})],transcript),[call('play_media',{title:'Example Artist Example Track',media_type:'mp4'})]);
+});
 test('required media type preserves explicit formats through validation and execution',async()=>{
  const cases=[['MP3','mp3','mp3'],['MP4','mp4','mp4']];
  for(const [spoken,media_type,format] of cases){
@@ -71,7 +76,6 @@ test('required media type preserves explicit formats through validation and exec
   await executeCalls(calls,{matchMedia:value=>(request=value,{status:'match',candidates:[{id:'one',title:'Example Track'}]}),playMedia:()=>{},showCandidates:()=>{}});
   assert.deepEqual(request,{title,format});
  }
- assert.throws(()=>validateCalls([call('play_media',{title:'Example Track',media_type:'mp3'})],'Play Example Track'),/not requested/);
 });
 test('accepts an exact title-only playback request but rejects an invented title',()=>{
  const title='Example Ensemble Anthology';
