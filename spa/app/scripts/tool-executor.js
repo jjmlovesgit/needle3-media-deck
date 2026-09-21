@@ -61,11 +61,17 @@ export function validateCalls(calls,transcript){
   if(volumeAction&&!mentions(text,volumeActionPhrases[volumeAction]||[]))throw new Error('Volume adjustment was not grounded in the typed command.');
   if(namedPlayback.has(call.name)&&!mentions(text,phrases.play)&&normalize(args.title)!==text)throw new Error('Playback was not requested.');
   if(namedPlayback.has(call.name)){
-   const requestedFormat=mentions(text,['mp3','audio'])?'mp3':mentions(text,['mp4','video','videos','original video','original videos','karaoke'])?'mp4':null;
+   const trailingFormat=/\s+(?:(mp3|audio)|(mp4|original\s+videos?|karaoke(?:\s+videos?)?|videos?))(?:\s+files?)?\s*$/i.exec(transcript.trim());
+   const requestedFormat=trailingFormat?(trailingFormat[1]?'mp3':'mp4'):null;
    const toolFormat=args.media_type;
    if(requestedFormat&&toolFormat!==requestedFormat)throw new Error('Needle omitted or changed the explicitly requested media format. Nothing was played.');
    const explicit=/^(?:please\s+)?(?:play|resume|continue)\s+(.+)$/i.exec(transcript.trim());
-   if(explicit&&normalize(explicit[1]).split(' ')[0]!==normalize(args.title).split(' ')[0])throw new Error('Needle omitted the beginning of the requested title. Nothing was played.');
+   if(explicit){
+    const requested=normalize(explicit[1]);
+    const groundedStarts=[args.artist,args.title].filter(Boolean).map(normalize)
+     .some(value=>requested===value||requested.startsWith(value+' '));
+    if(!groundedStarts)throw new Error('Needle omitted the beginning of the requested media name. Nothing was played.');
+   }
   }
   if(call.name==='control_playback'&&!mentions(text,phrases[args.action]||[]))throw new Error('Playback action was not grounded in the typed command.');
   if(call.name==='rewind_10_seconds'&&(!mentions(text,['rewind','backward','back'])||!/(^|[^0-9])10([^0-9]|$)/.test(transcript)))throw new Error('Rewind was not grounded in the typed command.');

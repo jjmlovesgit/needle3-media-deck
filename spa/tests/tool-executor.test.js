@@ -40,10 +40,13 @@ test('validates Needle-selected seek, filter, search, and panel tools without re
 test('named and current-track playback cannot execute together',()=>{
  assert.throws(()=>validateCalls([call('control_playback',{action:'play'}),call('play_media',{title:'Example Track Alpha',media_type:'any'})],'Play Example Track Alpha'));
 });
-test('preserves the beginning of an explicitly requested title',()=>{
- const transcript="Play Azure Horizon Example Artist's version";
- const title='Azure Horizon',artist='Example Artist';
- assert.deepEqual(validateCalls([call('play_media',{title,artist,media_type:'any'})],transcript),[call('play_media',{title,artist,media_type:'any'})]);
+test('anchors named playback to a grounded leading artist or title',()=>{
+ const structured='Play The Example Ensemble Signal';
+ assert.deepEqual(validateCalls([call('play_media',{artist:'The Example Ensemble',title:'Signal',media_type:'any'})],structured),
+  [call('play_media',{artist:'The Example Ensemble',title:'Signal',media_type:'any'})]);
+ assert.throws(()=>validateCalls([call('play_media',{title:'Example Signal',media_type:'any'})],'Play The Example Signal'),/omitted the beginning/);
+ const title="Azure Horizon Example Artist's version",transcript='Play '+title;
+ assert.deepEqual(validateCalls([call('play_media',{title,media_type:'any'})],transcript),[call('play_media',{title,media_type:'any'})]);
  assert.throws(()=>validateCalls([call('play_media',{title:"Horizon Example Artist's version",media_type:'any'})],transcript),/omitted the beginning/);
 });
 test('validates only grounded mute actions',()=>{
@@ -64,6 +67,12 @@ test('requires Needle to preserve an explicitly requested MP3 or MP4 format',()=
  assert.throws(()=>validateCalls([call('play_media',{title,media_type:'any'})],'Play Example Artist Example Track MP4'),/requested media format/);
  assert.throws(()=>validateCalls([call('play_media',{title,media_type:'mp3'})],'Play Example Artist Example Track video'),/requested media format/);
  assert.throws(()=>validateCalls([call('play_media',{title,media_type:'any'})],'Play Example Artist Example Track MP3'),/requested media format/);
+});
+test('recognizes format only as a documented trailing phrase',()=>{
+ const title='Example Video Games';
+ assert.deepEqual(validateCalls([call('play_media',{title,media_type:'any'})],'Play '+title),[call('play_media',{title,media_type:'any'})]);
+ assert.deepEqual(validateCalls([call('play_media',{title,media_type:'mp4'})],'Play '+title+' MP4 file'),[call('play_media',{title,media_type:'mp4'})]);
+ assert.throws(()=>validateCalls([call('play_media',{title,media_type:'any'})],'Play '+title+' original video file'),/requested media format/);
 });
 test('allows Needle to choose a format for a format-neutral playback request',()=>{
  const transcript='Play Example Artist Example Track';
