@@ -92,3 +92,15 @@ node tests\browser-smoke.cjs
 
 See [Needle integration](docs/NEEDLE-INTEGRATION.md) for asset provenance,
 execution boundaries, test coverage, and measured resource use.
+## Optional Hey Jarvis wake word
+
+The **HEY JARVIS** checkbox starts a local CPU/ONNX LiveKit listener only after its runtime is provisioned. It owns the microphone while idle, releases it when it detects the wake phrase, then Chrome captures one command and the listener resumes after that command ends. Manual push-to-talk pauses the listener before capture.
+
+The 1.27 MB `Hey Jarvis` ONNX model is included under `wakeword/models/`. During one-time provisioning, use the pinned network install below. Afterward, preserve the air gap by placing a verified, compatible wheel bundle in `wakeword/wheels/` and installing only from that local directory:
+
+```powershell
+cd C:\Projects\needle3-media-deck-reference-clone\spa
+npm run setup:wakeword
+```
+
+The command uses `pip --no-index`; it never downloads packages. If the runtime is absent, the checkbox remains disabled and the status names the missing local dependency.

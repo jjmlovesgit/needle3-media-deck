@@ -5,6 +5,8 @@
   "scripts": {
     "start": "node scripts/serve.mjs",
     "test": "node --test tests/*.test.js",
-    "test:catalog": "node scripts/catalog-regression.mjs"
+    "test:catalog": "node scripts/catalog-regression.mjs",
+    "setup:wakeword": "..\\\\.venv\\\\Scripts\\\\python.exe -m pip install --no-index --find-links .\\\\wakeword\\\\wheels -r requirements-wakeword.txt",
+    "setup:wakeword:network": "..\\\\.venv\\\\Scripts\\\\python.exe -m pip install -r requirements-wakeword.txt"
   }
 }
