@@ -20,36 +20,23 @@ from a pinned official release and verified before the server starts.
 - Internet access once to acquire the pinned Needle 3 assets
 - Optional: browser support for on-device speech recognition for manual
   push-to-talk commands
+- Optional: Python 3.12 for the local Hey Jarvis wake-word listener
 
-The source workflow runs directly in the browser. A portable Windows developer
-build is also available for local packaging and air-gap validation.
+This branch documents and runs the source SPA directly. Packaging is maintained
+separately and is not part of this installation path.
 
-## Windows portable build
-
-Build the portable application from the repository root:
-
+## Install and run from source
 ```powershell
-.\packaging\scripts\build-portable.ps1
-```
-
-Run `packaging\dist\Needle3MediaDeck-portable\MediaDeck.exe`. The first launch
-asks for the local MP3/MP4 library. The package contains no media, downloader,
-Python, FFmpeg, catalog enrichment cache, extension, or native messaging host.
-It requires Google Chrome on the destination computer. See
-[the packaging guide](packaging/README.md) for the smoke test and current
-on-device speech provisioning limitation.
-
-## Install and run
-
-```powershell
+cd C:\Projects
 git clone https://github.com/jjmlovesgit/needle3-media-deck.git
-cd needle3-media-deck\spa
+cd .\needle3-media-deck\spa
 node scripts\acquire-needle.mjs
 npm start
 ```
 
-Open <http://127.0.0.1:8080/>. The acquisition command is needed only when the
-verified assets are absent or the pinned asset revision changes.
+Open <http://127.0.0.1:8080/>. The acquisition command downloads the pinned,
+hash-verified Needle assets once; rerun it only when those assets are absent or
+the pinned revision changes.
 
 ## Add local media
 
@@ -139,9 +126,24 @@ Needle provides the language interpretation. The application provides truth,
 safety, identity, and execution.
 
 For manual microphone input, hold the microphone button or **Ctrl+Space**,
-speak one command, and release. There is no wake word, VAD loop, or background
-microphone owner. Availability depends on the browser's on-device speech
-recognition and installed language pack.
+speak one command, and release. Availability depends on the browser's on-device
+speech recognition and installed language pack.
+
+### Optional Hey Jarvis wake word
+
+The **HEY JARVIS** checkbox enables a local CPU/ONNX listener. While enabled,
+it owns the idle microphone; after detection it releases the device for one
+Chrome command capture, then resumes. The initial dependency setup is a
+one-time network step:
+
+```powershell
+cd C:\Projects\needle3-media-deck\spa
+npm run setup:wakeword:network
+```
+
+After provisioning, the listener and bundled model run locally. For an offline
+rebuild, place verified wheels in `spa\wakeword\wheels` and run
+`npm run setup:wakeword`.
 
 ## Validation
 
