@@ -1,5 +1,7 @@
 # Needle 3 Media Deck
 
+![Needle 3 Media Deck UI preview](docs/images/media-deck-preview.png)
+
 Needle 3 Media Deck is a local-first, single-page MP3/MP4 player with local
 natural-language command routing. The browser UI, media playback, library,
 equalizer, manual push-to-talk input, and Needle 3 WASM inference all run on
