@@ -4,11 +4,14 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("ORT_NUM_THREADS", "1")
 
 class WakeWordService:
     def __init__(self, model_path: Path, threshold: float = 0.55) -> None:
@@ -91,31 +94,57 @@ class WakeWordService:
             }
 
     async def _listen_once(self, model):
-        from livekit.wakeword import WakeWordListener
-        listener = WakeWordListener(model, threshold=self.threshold, debounce=2.0)
-        async with listener:
-            with self._lock:
-                self._state = "listening"
-                self._error = ""
-            detection_task = asyncio.create_task(listener.wait_for_detection())
-            try:
-                while not self._stop.is_set():
-                    with self._lock:
-                        enabled, hold = self._enabled, self._hold
-                    if not enabled or hold:
-                        return None
-                    done, _ = await asyncio.wait({detection_task}, timeout=0.1)
-                    if done:
-                        return detection_task.result()
-            finally:
-                if not detection_task.done():
-                    detection_task.cancel()
-                    try:
-                        await detection_task
-                    except asyncio.CancelledError:
-                        pass
-        return None
+        """Listen locally and run the ONNX model at a bounded cadence.
 
+        The upstream LiveKit listener re-evaluates the full two-second audio
+        window after every 80 ms frame. This service retains the same sliding
+        window but evaluates at most once every 750 ms to keep idle CPU use
+        appropriate for an always-on desktop wake word.
+        """
+        from collections import deque
+        import numpy as np
+        import pyaudio
+
+        sample_rate, frame_samples = 16000, 1280
+        window_frames, inference_interval = 25, 0.75
+        frames: deque[np.ndarray] = deque(maxlen=window_frames)
+        audio = pyaudio.PyAudio()
+        stream = audio.open(
+            format=pyaudio.paInt16,
+            channels=1,
+            rate=sample_rate,
+            input=True,
+            frames_per_buffer=frame_samples,
+        )
+        last_inference = 0.0
+        last_detection = 0.0
+        with self._lock:
+            self._state = "listening"
+            self._error = ""
+        try:
+            while not self._stop.is_set():
+                with self._lock:
+                    enabled, hold = self._enabled, self._hold
+                if not enabled or hold:
+                    return None
+                data = await asyncio.to_thread(
+                    stream.read, frame_samples, exception_on_overflow=False
+                )
+                frames.append(np.frombuffer(data, dtype=np.int16))
+                now = time.monotonic()
+                if len(frames) < window_frames or now - last_inference < inference_interval:
+                    continue
+                last_inference = now
+                scores = await asyncio.to_thread(model.predict, np.concatenate(tuple(frames)))
+                confidence = max((float(score) for score in scores.values()), default=0.0)
+                if confidence >= self.threshold and now - last_detection >= 2.0:
+                    last_detection = now
+                    return confidence
+        finally:
+            stream.stop_stream()
+            stream.close()
+            audio.terminate()
+        return None
     def _run(self) -> None:
         model = None
         while not self._stop.is_set():
@@ -141,7 +170,7 @@ class WakeWordService:
                 # The listener context has closed, so Chrome can acquire the microphone.
                 with self._lock:
                     self._sequence += 1
-                    self._confidence = float(detection.confidence)
+                    self._confidence = float(detection)
                     self._detected_at = time.time()
                     self._state = "triggered"
                 self._changed.clear()
