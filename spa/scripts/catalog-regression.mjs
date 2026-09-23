@@ -75,7 +75,7 @@ try {
     while (globalThis.__mediaDeckCatalogRegression.librarySize() !== library.items.length && performance.now() - startedAt < 15000) await new Promise(resolve => setTimeout(resolve, 50));
     if (globalThis.__mediaDeckCatalogRegression.librarySize() !== library.items.length) throw new Error('application library did not finish indexing');
     const media = document.querySelector('#media'); media.muted = true;
-    const counts = { mp3: 0, original_mp4: 0, karaoke_mp4: 0 }, failures = [];
+    const counts = { mp3: 0, original_mp4: 0, karaoke_mp4: 0 }, failures = []; let aliasesTested = 0;
     const libraryPanel = document.querySelector('#libraryPanel');
     for (let cycle = 0; cycle < 3; cycle++) {
       libraryPanel.open = false; await new Promise(resolve => requestAnimationFrame(()=>requestAnimationFrame(resolve)));
@@ -96,9 +96,16 @@ try {
     for (const item of library.items) {
       counts[item.kind] = (counts[item.kind] || 0) + 1;
       const title = item.artist ? item.artist + ' - ' + item.title : item.title;
-      const match = globalThis.__mediaDeckCatalogRegression.matchMedia({ title, format: item.kind === 'mp3' ? 'mp3' : 'mp4' });
+      const match = globalThis.__mediaDeckCatalogRegression.matchMedia({ title, format: item.kind });
       if (!match.candidates.some(candidate => candidate.id === item.id)) {
         failures.push({ id: item.id, kind: item.kind, stage: 'match', status: match.status }); continue;
+      }
+      for (const alias of Array.isArray(item.aliases) ? item.aliases : []) {
+        aliasesTested++;
+        const aliasMatch = globalThis.__mediaDeckCatalogRegression.matchMedia({ title: alias, format: item.kind });
+        if (!aliasMatch.candidates.some(candidate => candidate.id === item.id)) {
+          failures.push({ id: item.id, kind: item.kind, stage: 'alias-match', alias, status: aliasMatch.status });
+        }
       }
       try {
         media.pause(); media.removeAttribute('src'); media.load();
@@ -111,19 +118,24 @@ try {
       } catch (error) { failures.push({ id: item.id, kind: item.kind, stage: 'play', error: error.message }); }
     }
     const needleRoutes = [], volumeRoutes = [], expectedTool = 'play_media';
-    const spokenFormats = { mp3: 'MP3', mp4: 'MP4' };
+    const routeCases = [
+      { name: 'unqualified', expectedFormat: 'any', suffix: '', accepts: () => true, requestTitle: item => [item.artist, item.title].filter(Boolean).join(' '), matchRequest: item => ({ title: item.title, ...(item.artist ? { artist: item.artist } : {}), format: 'any' }) },
+      { name: 'mp3', expectedFormat: 'mp3', suffix: 'MP3', accepts: item => item.kind === 'mp3', requestTitle: item => [item.artist, item.title].filter(Boolean).join(' '), matchRequest: item => ({ title: item.title, ...(item.artist ? { artist: item.artist } : {}), format: 'mp3' }) },
+      { name: 'mp4', expectedFormat: 'mp4', suffix: 'MP4', accepts: item => item.kind.endsWith('_mp4'), requestTitle: item => [item.artist, item.title].filter(Boolean).join(' '), matchRequest: item => ({ title: item.title, ...(item.artist ? { artist: item.artist } : {}), format: 'mp4' }) }
+    ];
     const readyStarted = performance.now();
     while (!document.querySelector('#commandState')?.textContent.includes('WASM READY') && performance.now() - readyStarted < 90000) await new Promise(resolve => setTimeout(resolve, 100));
     if (!document.querySelector('#commandState')?.textContent.includes('WASM READY')) {
       failures.push({ kind: 'all', stage: 'needle', error: 'Needle did not become ready' });
     } else {
       const sensitivity = document.querySelector('#commandSensitivity'); sensitivity.value = '0'; sensitivity.dispatchEvent(new Event('input', { bubbles: true }));
-      for (const kind of Object.keys(spokenFormats)) {
-        const sample = library.items.filter(item => kind === 'mp3' ? item.kind === 'mp3' : item.kind.endsWith('_mp4'))
-          .sort((left, right) => ((left.artist || '') + left.title).length - ((right.artist || '') + right.title).length)[0];
-        if (!sample) { failures.push({ kind, stage: 'needle', error: 'No catalog sample' }); continue; }
+      for (const routeCase of routeCases) {
+        const sample = library.items.filter(routeCase.accepts)
+          .sort((left, right) => ((left.artist || '') + left.title).length - ((right.artist || '') + right.title).length)
+          .find(item => globalThis.__mediaDeckCatalogRegression.matchMedia(routeCase.matchRequest(item)).status === 'match');
+        if (!sample) { failures.push({ format: routeCase.name, stage: 'needle', error: 'No unambiguous catalog sample' }); continue; }
         const input = document.querySelector('#commandInput'), run = document.querySelector('#commandRun');
-        input.value = `Play ${[sample.artist, sample.title].filter(Boolean).join(' ')} ${spokenFormats[kind]}`;
+        input.value = `Play ${routeCase.requestTitle(sample)}${routeCase.suffix ? ' ' + routeCase.suffix : ''}`;
         input.dispatchEvent(new Event('input', { bubbles: true })); run.click();
         const routeStarted = performance.now();
         while (run.disabled && performance.now() - routeStarted < 30000) await new Promise(resolve => setTimeout(resolve, 50));
@@ -133,14 +145,14 @@ try {
         const selectedTitle = /"title"\s*:\s*"([^"]+)"/.exec(rawCalls)?.[1] || '';
         const selectedArtist = /"artist"\s*:\s*"([^"]+)"/.exec(rawCalls)?.[1] || '';
         const selectedAlbum = /"album"\s*:\s*"([^"]+)"/.exec(rawCalls)?.[1] || '';
-        const expectedFormat = kind;
+        const expectedFormat = routeCase.expectedFormat;
         const selectedId = media.src ? decodeURIComponent(new URL(media.src).pathname.split('/').pop()) : '';
         const selected = library.items.find(item => item.id === selectedId);
         const result = document.querySelector('#commandResult')?.textContent || '';
-        const selectedKindMatches = kind === 'mp3' ? selected?.kind === 'mp3' : selected?.kind?.endsWith('_mp4');
-        const pass = tool === expectedTool && selectedFormat === expectedFormat && selectedKindMatches && result.startsWith('Playback requested:');
-        needleRoutes.push({ kind, expectedTool, expectedFormat, selectedTool: tool, selectedFormat, selectedTitle, selectedArtist, selectedAlbum, selectedKind: selected?.kind || null, pass });
-        if (!pass) failures.push({ id: sample.id, kind, stage: 'needle', expectedTool, expectedFormat, selectedTool: tool, selectedFormat, selectedTitle, selectedArtist, selectedAlbum, selectedKind: selected?.kind || null, result });
+        const selectedSample = selected?.id === sample.id;
+        const pass = tool === expectedTool && selectedFormat === expectedFormat && selectedSample && result.startsWith('Playback requested:');
+        needleRoutes.push({ format: routeCase.name, expectedTool, expectedFormat, selectedTool: tool, selectedFormat, selectedTitle, selectedArtist, selectedAlbum, expectedId: sample.id, selectedId, selectedKind: selected?.kind || null, pass });
+        if (!pass) failures.push({ id: sample.id, format: routeCase.name, stage: 'needle', expectedTool, expectedFormat, selectedTool: tool, selectedFormat, selectedTitle, selectedArtist, selectedAlbum, selectedId, selectedKind: selected?.kind || null, result });
       }
       const volumeCases = [
         { text: 'Mute playback', action: 'mute', tool: 'mute_audio' },
@@ -186,7 +198,7 @@ try {
       }
     }
     media.pause(); media.removeAttribute('src'); media.load();
-    return { generatedAt: new Date().toISOString(), files: library.items.length, counts,
+    return { generatedAt: new Date().toISOString(), files: library.items.length, counts, aliasesTested,
       matched: library.items.length - failures.filter(value => value.stage === 'match').length,
       played: library.items.length - failures.filter(value => value.stage === 'play').length,
       needleRoutes, volumeRoutes, failures };

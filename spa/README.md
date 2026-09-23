@@ -35,11 +35,19 @@ The browser file picker remains available independently of that indexed source.
 - `scripts/serve.mjs` provides the loopback-only static, library, and byte-range
   media endpoints.
 
-Needle chooses `mp3`, `mp4`, or `any` for named playback. Both original and
-karaoke videos are MP4 for playback routing while remaining separate library
-classifications. Generic normalization removes a repeated trailing format word
-and optional artist/album values only when they duplicate the normalized title;
-it contains no catalog titles or catalog-specific routing rules.
+Needle chooses one typed playback format. The published request forms are:
+
+- no trailing format — `any`
+- `MP3` or `audio` — `mp3`
+- `MP4` or `video` — generic `mp4`
+
+Karaoke and original-video entries remain distinct catalog classifications, but
+the current model does not reliably route them as separate voice formats.
+
+The trailing format phrase is excluded from the title. Generic normalization
+removes a repeated trailing format word and optional artist/album values only
+when they duplicate the normalized title; it contains no catalog titles or
+catalog-specific routing rules.
 
 ## Browser boundaries
 
@@ -64,10 +72,15 @@ npm run test:catalog
 ```
 
 The first command runs focused module tests. The catalog regression dynamically
-loads every configured media item in a Chromium browser, checks deterministic
-MP3/MP4 matching and actual playback, and performs live Needle MP3/MP4 routes.
-It embeds no real library titles. The generated report is ignored under
+loads every configured media item in a Chromium browser, checks exact typed
+matching and actual playback, then performs live Needle routes for every
+published request form. It dynamically selects unambiguous catalog samples and
+embeds no real library titles. The generated report is ignored under
 `demo/catalog-regression.json`.
+
+Every saved alias is also checked against its intended catalog record. Aliases
+are deterministic catalog metadata; they do not add a separate Needle tool or
+voice format.
 
 Additional browser tests in `tests` use an existing Playwright installation:
 

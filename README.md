@@ -155,8 +155,10 @@ npm test
 `npm test` covers playback state, media classification and matching, library
 state, tool validation, source containment, and UI parity. `npm run
 test:catalog` requires a populated configured library and an installed Chromium
-browser; it dynamically checks every catalog item for the correct MP3/MP4 match
-and real playback-clock advancement, then runs live Needle MP3 and MP4 probes.
+browser; it dynamically checks every catalog item for its exact typed match and
+real playback-clock advancement, then runs live Needle probes for unqualified,
+MP3, and generic MP4 requests. Original-video and karaoke remain catalog
+classifications, rather than separate voice-routing formats.
 The generated report is written to ignored `demo/catalog-regression.json`.
 
 ## Optional catalog preparation

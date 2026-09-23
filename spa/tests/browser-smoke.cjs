@@ -15,6 +15,18 @@ const assert=require('node:assert/strict');
   await p.locator('[data-id="'+audio.id+'"]').click();
   await p.waitForFunction(()=>document.querySelector('#media').currentTime>1);
   assert.equal(await p.locator('#media').count(),1);
+  for(const item of manifest.items.filter(x=>x.kind==='mp3').slice(0,3)){
+   await p.locator('[data-id="'+item.id+'"]').click();
+   await p.waitForFunction(id=>document.querySelector('.library-item.selected')?.dataset.id===id,item.id);
+   await p.waitForTimeout(350);
+   const layout=await p.locator('#libraryList').evaluate(list=>{
+    const listWidth=list.getBoundingClientRect().width;
+    const rows=[...list.querySelectorAll('.library-entry')].slice(0,10).map(entry=>({entryWidth:entry.getBoundingClientRect().width,itemWidth:entry.querySelector('.library-item')?.getBoundingClientRect().width||0,title:entry.querySelector('.library-title')?.textContent?.trim()||''}));
+    return {listWidth,rows};
+   });
+   assert(layout.listWidth>100,'library list should have usable width during MP3 playback');
+   assert(layout.rows.length&&layout.rows.every(row=>row.entryWidth>layout.listWidth*.9&&row.itemWidth>layout.listWidth*.9&&row.title),'library rows should remain full width during MP3 playback');
+  }
   const scope=await p.locator('#audioScope').evaluate(el=>({width:el.width,nonempty:el.getContext('2d').getImageData(0,0,el.width,el.height).data.some(x=>x!==0)}));
   assert(scope.width>1&&scope.nonempty);
   await p.locator('#eqPreset').selectOption('builtin:Rock');
