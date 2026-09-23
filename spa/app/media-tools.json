@@ -1,7 +1,7 @@
 [
   {
     "name": "play_media",
-    "description": "Play named local media. The required media_type must be mp3 for MP3 or audio, mp4 for MP4 or video, or any when the user states no format. Put only the requested media name in title; exclude command and format words.",
+    "description": "Play named local media. Use mp3 only for a final MP3 or audio, mp4 only for a final MP4 or video, and any for every request without one of those final format phrases. Do not infer a format from title words or catalog names; keep those words in title. Karaoke and original-video labels are library classifications, not separate playback formats.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -106,7 +106,7 @@
   },
   {
     "name": "show_all_media_files",
-    "description": "Clear the media category filter without changing panel visibility. Command example: Show all media. This is a filter action, not a panel action.",
+    "description": "Clear the media category filter without changing panel visibility. Use only when the user explicitly requests the all-media category, such as: Show all media. Do not use this tool to open, show, or close the Media Library panel.",
     "parameters": {
       "type": "object",
       "properties": {},
@@ -214,7 +214,7 @@
   },
   {
     "name": "show_library_panel",
-    "description": "Open or show the Media Library panel without changing its category filter. Command example: Show the library. This is a panel action, not a filter action.",
+    "description": "Open or show the Media Library panel without changing its category filter. A complete request can be only an action plus the panel name, including: Open the media library. Use this for any request to open, show, expand, or display the named Media Library. This is a panel action, not a filter action.",
     "parameters": {
       "type": "object",
       "properties": {},
@@ -223,7 +223,7 @@
   },
   {
     "name": "hide_media_library_panel",
-    "description": "Hide or close the Media Library panel when the user explicitly names the library.",
+    "description": "Hide or close the Media Library panel when the user explicitly names the library. A complete request can be only an action plus the panel name, including: Close the media library.",
     "parameters": {
       "type": "object",
       "properties": {},

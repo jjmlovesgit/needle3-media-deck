@@ -7,6 +7,7 @@ import { prepareAudio, startVisuals, stopVisuals, refreshMonitor, disposeAudio, 
 import { NeedleClient } from './needle-client.js';
 import { ManualVoiceInput } from './manual-voice.js';
 import { CommandConfirmationPolicy } from './command-confirmation.js';
+import { WakewordClient } from './wakeword-client.js';
 
 const $ = id => document.getElementById(id);
 const media = /** @type {HTMLVideoElement} */ ($('media'));
@@ -160,7 +161,20 @@ player.subscribe(state=>{
 });
 media.addEventListener('loadedmetadata',refreshMonitor);
 media.addEventListener('error',()=>{notice.textContent='This file could not be decoded. Select another local file.';});
+const experimentalNeedleModel='needle3-media-deck-corrected-smoke.cact';
+const modelSearchParams=new URLSearchParams(location.search);
+const requestedNeedleModel=modelSearchParams.get('needle-model')||undefined;
+const usingExperimentalNeedleModel=requestedNeedleModel===experimentalNeedleModel;
+$('experimentalModelToggle').checked=usingExperimentalNeedleModel;
+$('experimentalModelToggle').onchange=event=>{
+ const next=new URL(location.href);
+ if(event.currentTarget.checked)next.searchParams.set('needle-model',experimentalNeedleModel);
+ else next.searchParams.delete('needle-model');
+ location.assign(next.toString());
+};
 const needle=new NeedleClient();
+let wakeword=null;
+let wakewordCapture=false;
 let voiceMutedBefore=false;
 const voice=new ManualVoiceInput({
  onState:value=>$('commandState').textContent=value,
@@ -168,18 +182,41 @@ const voice=new ManualVoiceInput({
  onInterim:value=>$('commandInput').value=value,
  onRecording:active=>{if(active)$('pushToTalk').classList.remove('arming');$('pushToTalk').classList.toggle('recording',active);$('pushToTalk').setAttribute('aria-pressed',String(active));},
  onCapture:active=>{if(active){voiceMutedBefore=media.muted;media.muted=true;$('pushToTalk').classList.add('arming');}else{media.muted=voiceMutedBefore;$('pushToTalk').classList.remove('arming','recording');$('pushToTalk').setAttribute('aria-pressed','false');}},
- onTranscript:async transcript=>{$('commandInput').value=transcript;await runTypedCommand();}
+  onTranscript:async transcript=>{$('commandInput').value=transcript;await runTypedCommand();},
+  onFinished:async()=>{wakewordCapture=false;if(wakeword)await wakeword.resume();}
 });
-for(const id of ['commandInput','commandRun','pushToTalk','wakewordToggle'])$(id).disabled=true;
+for(const id of ['commandInput','commandRun','pushToTalk'])$(id).disabled=true;
+$('wakewordToggle').disabled=true;
 $('commandState').textContent='NEEDLE 3 · WASM ASSETS PENDING';
-$('wakewordToggle').textContent='WAKE WORD OFF';$('wakewordToggle').setAttribute('aria-pressed','false');
-$('wakewordToggle').nextElementSibling.textContent='LOCAL VOICE · NOT CONNECTED';
+$('wakewordToggle').checked=false;
+$('wakewordMode').textContent='LOCAL VOICE · NOT CONNECTED';
 $('wakewordStatus').textContent='NOT LOADED';
+const showWakewordState=(state,{detected=false}={})=>{
+ const enabled=Boolean(state.enabled), available=Boolean(state.available);
+ $('wakewordToggle').checked=enabled;
+ $('wakewordToggle').disabled=!available;
+ $('wakewordLight').className='wakeword-light '+(state.state==='listening'?'listening':state.state==='triggered'?'triggered':'');
+ $('wakewordMode').textContent='LIVEKIT · LOCAL CPU · ONNX';
+ $('wakewordStatus').textContent=state.error?'ERROR · '+state.error.toUpperCase():state.state==='listening'?'LISTENING · SAY “HEY JARVIS”':String(state.state||'unavailable').toUpperCase();
+ if(detected&&enabled&&!wakewordCapture){
+  if(!needleStatus?.ready){void wakeword.resume();return;}
+  wakewordCapture=true;
+  $('commandResult').textContent='Hey Jarvis detected. Preparing local command recognition…';
+  void voice.begin({autoEnd:true});
+ }
+};
+wakeword=new WakewordClient({onState:showWakewordState});
+$('wakewordToggle').onchange=async event=>{
+ const toggle=event.currentTarget;toggle.disabled=true;
+ try{showWakewordState(await wakeword.configure(toggle.checked));}
+ catch(error){$('commandResult').textContent=error.message;}
+ finally{if(toggle.disabled)void wakeword.status().catch(()=>{});}
+};
 $('commandInput').placeholder='Needle 3 WASM runtime and model assets pending';
 $('commandResult').textContent='WASM worker boundary is active. Voice and inference are not connected; no microphone is opened.';
 
 void refreshLibrary();
-window.addEventListener('pagehide',event=>{if(!event.persisted){voice.dispose();player.dispose();disposeAudio();needle.dispose();}});
+window.addEventListener('pagehide',event=>{wakeword?.stopPolling();if(!event.persisted){voice.dispose();player.dispose();disposeAudio();needle.dispose();}});
 
 
 const routingMetrics=document.createElement('div');routingMetrics.id='routingMetrics';routingMetrics.className='command-result';
@@ -265,8 +302,9 @@ async function runTypedCommand(){
   if(!result.success)throw new Error(result.error||result.reason||'Needle refused this request.');
   if(!result.function_calls?.length){$('commandState').textContent='NEEDLE 3 · NO ACTION';$('commandResult').textContent='No supported action matched. Nothing was changed.';return;}
 
-  callDetails.textContent='PROPOSED BY NEEDLE (validation pending)\n'+JSON.stringify(result.function_calls,null,2);
+  callDetails.textContent='PROPOSED BY NEEDLE\n'+JSON.stringify(result.function_calls,null,2);
   const calls=validateCalls(result.function_calls,query);
+  callDetails.textContent='VALIDATED BY APPLICATION\n'+JSON.stringify(calls,null,2);
   const confidence=typeof result.confidence==='number'?result.confidence:undefined;
   if(confirmationPolicy.requiresConfirmation(confidence)){
    pendingCommand={calls};
@@ -298,7 +336,7 @@ async function confirmPendingCommand(){
 $('commandRun').onclick=()=>{void runTypedCommand();};
 $('commandConfirm').onclick=()=>{void confirmPendingCommand();};
 $('commandInput').onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();void runTypedCommand();}};
-const beginManualVoice=()=>{if(!needleStatus?.ready||routing)return;void voice.begin();};
+const beginManualVoice=async()=>{if(!needleStatus?.ready||routing||wakewordCapture)return;wakewordCapture=true;await wakeword.pause();await voice.begin();};
 const endManualVoice=()=>voice.end();
 $('pushToTalk').onpointerdown=event=>{event.preventDefault();$('pushToTalk').setPointerCapture(event.pointerId);beginManualVoice();};
 $('pushToTalk').onpointerup=event=>{event.preventDefault();endManualVoice();};
@@ -310,15 +348,15 @@ let voiceSpaceHeld=false;
 document.addEventListener('keydown',event=>{if(event.code!=='Space'||!event.ctrlKey||event.repeat||voiceSpaceHeld)return;event.preventDefault();event.stopPropagation();voiceSpaceHeld=true;beginManualVoice();},true);
 document.addEventListener('keyup',event=>{if(event.code!=='Space'||!voiceSpaceHeld)return;event.preventDefault();event.stopPropagation();voiceSpaceHeld=false;endManualVoice();},true);
 window.addEventListener('blur',()=>{if(voiceSpaceHeld){voiceSpaceHeld=false;endManualVoice();}});
-$('commandState').textContent='NEEDLE 3 · LOADING LOCAL WASM';
+$('commandState').textContent=usingExperimentalNeedleModel?'NEEDLE 3 · LOADING 5-EPOCH TEST':'NEEDLE 3 · LOADING LOCAL WASM';
 $('commandResult').textContent='Verifying and loading the local model. No microphone capture.';
-void needle.request('status').then(status=>{
+void needle.request('status',{modelAsset:requestedNeedleModel}).then(status=>{
  needleStatus=status;displayMetrics(status);
  $('commandInput').disabled=false;$('commandRun').disabled=false;
  $('pushToTalk').disabled=!voice.supported;
  $('commandInput').placeholder='Try: Set volume to 35 percent';
- $('commandState').textContent='NEEDLE 3 · WASM READY';
- $('wakewordToggle').nextElementSibling.textContent=voice.supported?'LOCAL VOICE · MANUAL PTT':'LOCAL VOICE · UNAVAILABLE';
- $('wakewordStatus').textContent=voice.supported?'PTT READY':'LOCAL STT UNAVAILABLE';
+ $('commandState').textContent=usingExperimentalNeedleModel?'NEEDLE 3 · 5-EPOCH TEST READY':'NEEDLE 3 · WASM READY';
+if(!voice.supported){$('wakewordMode').textContent='LOCAL VOICE · UNAVAILABLE';$('wakewordStatus').textContent='LOCAL STT UNAVAILABLE';}
+ else void wakeword.startPolling().catch(error=>{$('wakewordStatus').textContent='STATUS UNAVAILABLE';$('commandResult').textContent=error.message;});
  $('commandResult').textContent=voice.supported?'Type a command, or hold the microphone button or Ctrl+Space to speak locally.':'Type a command and press Run. This browser does not expose local speech recognition.';
 }).catch(error=>{$('commandState').textContent='NEEDLE 3 · LOAD FAILED';$('commandResult').textContent=error.message;});

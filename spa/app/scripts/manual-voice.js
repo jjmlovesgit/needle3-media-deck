@@ -13,6 +13,7 @@ export class ManualVoiceInput {
   #quality = 'command';
   #inputName = '';
   #audioStarted = false;
+  #autoEnd = false;
   #callbacks;
 
   constructor(callbacks = {}) {
@@ -52,7 +53,7 @@ export class ManualVoiceInput {
     throw new Error('On-device speech recognition is unavailable for '+this.#locale+'.');
   }
 
-  async begin() {
+  async begin({autoEnd=false}={}) {
     if (this.#recognition || this.#preparing) return;
     this.#preparing = true;
     this.#clearTimers();
@@ -62,6 +63,7 @@ export class ManualVoiceInput {
     this.#transcript = '';
     this.#inputName = '';
     this.#audioStarted = false;
+    this.#autoEnd = Boolean(autoEnd);
     this.#capture(true);
     this.#state('MIC · PREPARING LOCAL STT');
     this.#message('Preparing on-device speech recognition…');
@@ -92,6 +94,9 @@ export class ManualVoiceInput {
         this.#message('Listening locally on '+this.#inputName+'. Speak, then release.');
       };
       recognition.onaudioend = () => this.#callbacks.onRecording?.(false);
+      recognition.onspeechend = () => {
+        if (this.#autoEnd && !this.#releaseRequested) this.#stopTimer = setTimeout(() => this.end(), 300);
+      };
       recognition.onresult = event => {
         let text = '';
         for (let index=0; index<event.results.length; index++) text += event.results[index][0]?.transcript || '';
@@ -108,6 +113,7 @@ export class ManualVoiceInput {
       recognition.onend = () => {
         this.#recognition = null;
         this.#callbacks.onRecording?.(false);
+        if (this.#autoEnd) this.#releaseRequested = true;
         if (this.#releaseRequested) this.#finalizeTimer = setTimeout(() => { void this.#finalize(); }, 200);
         else void this.#fail('Recognition ended before release. Hold the button and try again.');
       };
@@ -153,11 +159,12 @@ export class ManualVoiceInput {
     if (!transcript) {
       this.#state('MIC · NO SPEECH');
       this.#message(this.#emptyMessage());
+      await this.#callbacks.onFinished?.('empty');
       return;
     }
     this.#state('MIC · TRANSCRIBED LOCALLY');
     this.#message('Recognized locally: '+transcript);
-    await this.#callbacks.onTranscript?.(transcript);
+    try { await this.#callbacks.onTranscript?.(transcript); } finally { await this.#callbacks.onFinished?.('transcript'); }
   }
 
   async #fail(message) {
@@ -172,6 +179,7 @@ export class ManualVoiceInput {
     this.#capture(false);
     this.#state('MIC · UNAVAILABLE');
     this.#message(message);
+    await this.#callbacks.onFinished?.('failure');
   }
 
   dispose() {

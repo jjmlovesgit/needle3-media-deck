@@ -23,6 +23,7 @@ test('rejects unknown tools, extra arguments, empty settings, invalid types and 
  [[call('set_volume',{volume:50})],'volume 35'],
  [[call('play_media',{title:'Invented',media_type:'any'})],'play Example Track Alpha'],
  [[call('show_all_media_files',{})],'delete all files'],
+ [[call('show_all_media_files',{})],'Open the media library'],
  [[call('skip_forward_10_seconds',{})],'skip forward 30 seconds'],
  [[call('set_volume',[])],'volume 35']
  ])assert.throws(()=>validateCalls(calls,text));
@@ -33,6 +34,10 @@ test('validates Needle-selected seek, filter, search, and panel tools without re
  assert.deepEqual(validateCalls([call('show_karaoke_files_or_videos',{})],'Show karaoke videos'),[call('show_karaoke_files_or_videos',{})]);
  assert.deepEqual(validateCalls([call('search_library',{query:'Example Track Alpha'})],'Find Example Track Alpha'),[call('search_library',{query:'Example Track Alpha'})]);
  assert.deepEqual(validateCalls([call('show_library_panel',{})],'Show library'),[call('show_library_panel',{})]);
+ assert.deepEqual(validateCalls([call('show_library_panel',{})],'Open the media library'),[call('show_library_panel',{})]);
+ assert.deepEqual(validateCalls([call('hide_media_library_panel',{})],'Close the media library'),[call('hide_media_library_panel',{})]);
+ assert.deepEqual(validateCalls([call('show_library_panel',{})],'Open the media library for me'),[call('show_library_panel',{})]);
+ assert.deepEqual(validateCalls([call('hide_media_library_panel',{})],'Close the media library for me'),[call('hide_media_library_panel',{})]);
  assert.deepEqual(validateCalls([call('show_graphic_equalizer_panel',{})],'Show graphic equalizer'),[call('show_graphic_equalizer_panel',{})]);
  assert.throws(()=>validateCalls([call('set_panel',{section:'sidebar',action:'toggle'})],'Toggle sidebar'));
  assert.throws(()=>validateCalls([call('search_library',{query:'karaoke videos'})],'delete karaoke videos'));
@@ -74,10 +79,11 @@ test('recognizes format only as a documented trailing phrase',()=>{
  assert.deepEqual(validateCalls([call('play_media',{title,media_type:'mp4'})],'Play '+title+' MP4 file'),[call('play_media',{title,media_type:'mp4'})]);
  assert.throws(()=>validateCalls([call('play_media',{title,media_type:'any'})],'Play '+title+' original video file'),/requested media format/);
 });
-test('allows Needle to choose a format for a format-neutral playback request',()=>{
+test('requires the any default for a format-neutral playback request',()=>{
  const transcript='Play Example Artist Example Track';
- assert.deepEqual(validateCalls([call('play_media',{title:'Example Artist Example Track',media_type:'mp3'})],transcript),[call('play_media',{title:'Example Artist Example Track',media_type:'mp3'})]);
- assert.deepEqual(validateCalls([call('play_media',{title:'Example Artist Example Track',media_type:'mp4'})],transcript),[call('play_media',{title:'Example Artist Example Track',media_type:'mp4'})]);
+ assert.deepEqual(validateCalls([call('play_media',{title:'Example Artist Example Track',media_type:'any'})],transcript),[call('play_media',{title:'Example Artist Example Track',media_type:'any'})]);
+ assert.throws(()=>validateCalls([call('play_media',{title:'Example Artist Example Track',media_type:'mp3'})],transcript),/format that was not requested/);
+ assert.throws(()=>validateCalls([call('play_media',{title:'Example Artist Example Track',media_type:'mp4'})],transcript),/format that was not requested/);
 });
 test('required media type preserves explicit formats through validation and execution',async()=>{
  const cases=[['MP3','mp3','mp3'],['MP4','mp4','mp4']];

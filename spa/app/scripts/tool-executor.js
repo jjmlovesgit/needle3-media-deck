@@ -61,10 +61,11 @@ export function validateCalls(calls,transcript){
   if(volumeAction&&!mentions(text,volumeActionPhrases[volumeAction]||[]))throw new Error('Volume adjustment was not grounded in the typed command.');
   if(namedPlayback.has(call.name)&&!mentions(text,phrases.play)&&normalize(args.title)!==text)throw new Error('Playback was not requested.');
   if(namedPlayback.has(call.name)){
-   const trailingFormat=/\s+(?:(mp3|audio)|(mp4|original\s+videos?|karaoke(?:\s+videos?)?|videos?))(?:\s+files?)?\s*$/i.exec(transcript.trim());
+   const trailingFormat=/\s+(?:(mp3|audio)|(mp4|videos?))(?:\s+files?)?\s*$/i.exec(transcript.trim());
    const requestedFormat=trailingFormat?(trailingFormat[1]?'mp3':'mp4'):null;
    const toolFormat=args.media_type;
    if(requestedFormat&&toolFormat!==requestedFormat)throw new Error('Needle omitted or changed the explicitly requested media format. Nothing was played.');
+   if(!requestedFormat&&toolFormat!=='any')throw new Error('Needle chose a media format that was not requested. Nothing was played.');
    const explicit=/^(?:please\s+)?(?:play|resume|continue)\s+(.+)$/i.exec(transcript.trim());
    if(explicit){
     const requested=normalize(explicit[1]);
@@ -99,11 +100,11 @@ export async function executeCalls(calls,api,{allowAmbiguousMedia=false}={}){
  try { for(const {name,arguments:args} of calls){
   if(name==='play_media'){
    const {media_type,...mediaRequest}=args,format=media_type==='any'?null:media_type;
-   const suffix={mp3:/\s+(?:mp3|audio)(?:\s+files?)?\s*$/i,mp4:/\s+(?:mp4|original\s+videos?|karaoke(?:\s+videos?)?|videos?)(?:\s+files?)?\s*$/i}[media_type];
+   const suffix={mp3:/\s+(?:mp3|audio)(?:\s+files?)?\s*$/i,mp4:/\s+(?:mp4|videos?)(?:\s+files?)?\s*$/i}[media_type];
    if(suffix)for(const key of ['title','artist','album'])if(mediaRequest[key]){
     const value=mediaRequest[key].replace(suffix,'').trim();if(value)mediaRequest[key]=value;
    }
-   const formatOnly={mp3:['mp3','audio'],mp4:['mp4','video','videos','original video','original videos','karaoke','karaoke video','karaoke videos']}[media_type]||[];
+   const formatOnly={mp3:['mp3','audio'],mp4:['mp4','video','videos']}[media_type]||[];
    for(const key of ['artist','album'])if(formatOnly.includes(normalize(mediaRequest[key]||'')))delete mediaRequest[key];
    for(const key of ['artist','album'])if(normalize(mediaRequest[key]||'')===normalize(mediaRequest.title))delete mediaRequest[key];
    const match=api.matchMedia(format?{...mediaRequest,format}:mediaRequest);

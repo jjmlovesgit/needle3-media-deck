@@ -1,7 +1,8 @@
 import createNeedle from '../vendor/needle3/needle-browser.mjs';
 let engine=null,initializing=null,info=null,modelPointer=0;
 const vendor=new URL('../vendor/needle3/',import.meta.url);
-const ROUTING_CONTRACT='Route each explicit local media-player request using the provided tool names, descriptions, and schemas. Distinguish named playback, current transport, media-category filtering, library search, panel visibility, volume, and equalizer operations. Every named playback call must set the required media_type: mp3 for MP3 or audio, mp4 for MP4 or video, and any when no format is stated. Use set_volume with the stated number for an explicit percentage, mute_audio only for mute, and unmute_audio only for unmute. Treat library-panel visibility separately from media-category filters. Preserve forward versus backward transport direction. Copy every free-text argument as one complete verbatim span from the user input, preserving its first and last media-name words. Keep format words out of the title argument. Include optional arguments only when explicitly stated. Never invent or rewrite argument values. Return no calls for unsupported requests.';
+const validModelAsset=value=>typeof value==='string'&&/^[A-Za-z0-9][A-Za-z0-9._-]*\.cact$/.test(value);
+const ROUTING_CONTRACT='Route each explicit local media-player request using the provided tool names, descriptions, and schemas. Distinguish named playback, current transport, media-category filtering, library search, panel visibility, volume, and equalizer operations. A named panel or interface container always requires its dedicated panel tool; an action verb plus the exact panel name is a complete panel request and needs no courtesy words, extra object, or argument. A media-category filter requires an explicitly stated category such as all, MP3, original video, or karaoke. The word media by itself is not a category filter. Every named playback call must set the required media_type: mp3 only for a final MP3 or audio, mp4 only for a final MP4 or video, and any for every request without one of those final format phrases. Do not infer a format from words in a title or catalog name; all such words remain in title. Karaoke and original-video labels are library classifications, not separate playback formats. Use set_volume with the stated number for an explicit percentage, mute_audio only for mute, and unmute_audio only for unmute. Preserve forward versus backward transport direction. Copy every free-text argument as one complete verbatim span from the user input, preserving its first and last media-name words. Include optional arguments only when explicitly stated. Never invent or rewrite argument values. Return no calls for unsupported requests.';
 async function checkedFile(manifest,name){
  const entry=manifest.files.find(x=>x.name===name);
  const response=await fetch(new URL(name,vendor));
@@ -11,13 +12,14 @@ async function checkedFile(manifest,name){
  if(!entry||hash!==entry.sha256||bytes.byteLength!==entry.bytes)throw new Error('Needle asset verification failed: '+name);
  return bytes;
 }
-async function initialize(){
+async function initialize(requestedModel){
  if(engine)return info;if(initializing)return initializing;
  initializing=(async()=>{
   const start=performance.now();
   const manifest=await (await fetch(new URL('manifest.json',vendor))).json();
+  const modelAsset=validModelAsset(requestedModel)?requestedModel:'needle3.cact';
   const wasm=await checkedFile(manifest,'needle.wasm');
-  const model=await checkedFile(manifest,'needle3.cact');
+  const model=await checkedFile(manifest,modelAsset);
   const runtime=await createNeedle({wasmBinary:wasm,print:()=>{},printErr:()=>{}});
   modelPointer=runtime._malloc(model.byteLength);
   if(!modelPointer)throw new Error('Not enough WASM memory for Needle model');
@@ -30,7 +32,7 @@ async function initialize(){
     JSON.stringify(tools),'']);
   if(prefix<0)throw new Error('Needle tool initialization failed; schema may exceed model context ('+prefix+')');
   engine=runtime;
-  info={generation:3,depth:manifest.depth,revision:manifest.revision,modelBytes:model.byteLength,ready:true,initializationMs:Math.round(performance.now()-start),prefixTokens:prefix,wasmMemoryBytes:engine.HEAPU8.byteLength};
+  info={generation:3,depth:manifest.depth,revision:manifest.revision,modelAsset,modelBytes:model.byteLength,ready:true,initializationMs:Math.round(performance.now()-start),prefixTokens:prefix,wasmMemoryBytes:engine.HEAPU8.byteLength};
   return info;
  })();
  try{return await initializing;}catch(error){initializing=null;throw error;}
@@ -60,7 +62,7 @@ self.addEventListener('message',({data})=>{
  if(!data||!Number.isSafeInteger(data.id))return;
  queue=queue.then(async()=>{
   try{
-   const result=data.type==='status'?await initialize():data.type==='route'?await route(data.payload):(()=>{throw new Error('Unknown worker request');})();
+   const result=data.type==='status'?await initialize(data.payload?.modelAsset):data.type==='route'?await route(data.payload):(()=>{throw new Error('Unknown worker request');})();
    self.postMessage({id:data.id,result});
   }catch(error){self.postMessage({id:data.id,error:error.message||'Needle runtime failed'});}
  });

@@ -1,5 +1,7 @@
 # Needle 3 Media Deck
 
+![Needle 3 Media Deck UI preview](docs/images/media-deck-preview.png)
+
 Needle 3 Media Deck is a local-first, single-page MP3/MP4 player with local
 natural-language command routing. The browser UI, media playback, library,
 equalizer, manual push-to-talk input, and Needle 3 WASM inference all run on
@@ -19,8 +21,23 @@ from a pinned official release and verified before the server starts.
 - Optional: browser support for on-device speech recognition for manual
   push-to-talk commands
 
-The current distribution runs from source in the browser and is not packaged
-as a desktop executable.
+The source workflow runs directly in the browser. A portable Windows developer
+build is also available for local packaging and air-gap validation.
+
+## Windows portable build
+
+Build the portable application from the repository root:
+
+```powershell
+.\packaging\scripts\build-portable.ps1
+```
+
+Run `packaging\dist\Needle3MediaDeck-portable\MediaDeck.exe`. The first launch
+asks for the local MP3/MP4 library. The package contains no media, downloader,
+Python, FFmpeg, catalog enrichment cache, extension, or native messaging host.
+It requires Google Chrome on the destination computer. See
+[the packaging guide](packaging/README.md) for the smoke test and current
+on-device speech provisioning limitation.
 
 ## Install and run
 
@@ -140,8 +157,10 @@ npm test
 `npm test` covers playback state, media classification and matching, library
 state, tool validation, source containment, and UI parity. `npm run
 test:catalog` requires a populated configured library and an installed Chromium
-browser; it dynamically checks every catalog item for the correct MP3/MP4 match
-and real playback-clock advancement, then runs live Needle MP3 and MP4 probes.
+browser; it dynamically checks every catalog item for its exact typed match and
+real playback-clock advancement, then runs live Needle probes for unqualified,
+MP3, and generic MP4 requests. Original-video and karaoke remain catalog
+classifications, rather than separate voice-routing formats.
 The generated report is written to ignored `demo/catalog-regression.json`.
 
 ## Optional catalog preparation
